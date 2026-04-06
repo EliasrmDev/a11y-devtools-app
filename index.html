@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Security: restrict resource sources; all assets are self-contained -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; font-src 'self';">
+  <title>a11y DevTools — Web Accessibility Testing Extension</title>
+  <meta name="description"
+        content="Advanced Chrome extension for web accessibility testing. Powered by axe-core with WCAG 2.1/2.2 AA compliance scoring, DOM highlighting, and full DevTools panel integration.">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#070a10">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="a11y DevTools — Web Accessibility Testing Extension">
+  <meta property="og:description"
+        content="Scan, score, and fix web accessibility issues in real-time. Score 0–100 powered by axe-core.">
+
+  <style>
+    /* ═══════════════════════════════════════════════════
+       RESET & DESIGN TOKENS
+    ═══════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* — Color palette — */
+      --c-bg:        #070a10;
+      --c-surface:   #0c1018;
+      --c-surface2:  #0a0d14;
+      --c-surface3:  #111520;
+      --c-border:    rgba(255,255,255,0.07);
+      --c-border-md: rgba(255,255,255,0.12);
+      --c-text:      #e8edf8;
+      --c-sub:       rgba(232,237,248,0.42);
+      --c-primary:   #5b8dee;
+      --c-primary-l: #7aa4f2;
+      --c-critical:  #ff5050;
+      --c-serious:   #ffa032;
+      --c-moderate:  #ffd232;
+      --c-minor:     rgba(160,160,160,0.72);
+      --c-pass:      #4fc98a;
+
+      /* — Typography — */
+      --font-sans: 'Segoe UI', 'SF Pro Text', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Cascadia Code', 'Menlo', 'Consolas', 'Courier New', monospace;
+
+      /* — Spacing — */
+      --sp-xs:  4px;
+      --sp-sm:  8px;
+      --sp-md:  16px;
+      --sp-lg:  24px;
+      --sp-xl:  40px;
+      --sp-2xl: 64px;
+      --sp-3xl: 96px;
+
+      /* — Layout — */
+      --container: 1120px;
+      --radius:    6px;
+      --radius-lg: 12px;
+
+      /* — Background grid overlay — */
+      --grid-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M48 0L0 0 0 48' fill='none' stroke='rgba(91%2C141%2C238%2C0.04)' stroke-width='1'/%3E%3C/svg%3E");
+    }
+
+    /* ═══════════════════════════════════════════════════
+       BASE
+    ═══════════════════════════════════════════════════ */
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--c-bg);
+      background-image: var(--grid-bg);
+      background-size: 48px 48px;
+      color: var(--c-text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       SKIP LINK
+    ═══════════════════════════════════════════════════ */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 16px;
+      z-index: 9999;
+      padding: 8px 18px;
+      background: var(--c-primary);
+      color: #06080e;
+      font: 700 13px/1 var(--font-sans);
+      border-radius: 0 0 var(--radius) var(--radius);
+      text-decoration: none;
+      transition: top 0.15s;
+    }
+    .skip-link:focus { top: 0; outline: 2px solid #fff; outline-offset: 2px; }
+
+    /* ═══════════════════════════════════════════════════
+       UTILITIES
+    ═══════════════════════════════════════════════════ */
+    .container { max-width: var(--container); margin: 0 auto; padding: 0 var(--sp-lg); }
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 18px;
+      border-radius: var(--radius);
+      font: 600 13px/1 var(--font-sans);
+      text-decoration: none; border: none; cursor: pointer;
+      transition: background 0.15s, opacity 0.15s, transform 0.12s;
+      white-space: nowrap;
+    }
+    .btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 3px; }
+    .btn:active { transform: translateY(1px); }
+
+    .btn-primary { background: var(--c-primary); color: #06080e; }
+    .btn-primary:hover { background: var(--c-primary-l); }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.05);
+      color: var(--c-text);
+      border: 1px solid var(--c-border-md);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.09); }
+
+    .btn-lg { padding: 12px 26px; font-size: 14px; border-radius: 8px; }
+
+    /* Shimmer on primary CTA */
+    .btn-shimmer { position: relative; overflow: hidden; }
+    .btn-shimmer::after {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 55%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+      animation: btn-shimmer 3.5s ease-in-out infinite;
+    }
+    @keyframes btn-shimmer { 0% { left: -100%; } 100% { left: 220%; } }
+
+    /* ═══════════════════════════════════════════════════
+       NAVIGATION
+    ═══════════════════════════════════════════════════ */
+    .site-header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(7,10,16,0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+      max-width: var(--container); margin: 0 auto; padding: 0 var(--sp-lg);
+    }
+
+    .nav-logo {
+      display: flex; align-items: center; gap: 9px;
+      text-decoration: none; color: var(--c-text);
+    }
+    .nav-logo-icon { width: 26px; height: 26px; flex-shrink: 0; }
+    .nav-logo-name {
+      font: 700 14px/1 var(--font-mono);
+      color: var(--c-primary); letter-spacing: 0.4px;
+    }
+    .nav-logo-sep { font-size: 13px; color: var(--c-border-md); margin: 0 2px; }
+    .nav-logo-sub { font: 400 12px/1 var(--font-mono); color: var(--c-sub); }
+
+    .nav-links { display: flex; align-items: center; gap: var(--sp-xl); list-style: none; }
+    .nav-links a {
+      font-size: 13px; font-weight: 500; color: var(--c-sub);
+      text-decoration: none; transition: color 0.15s;
+    }
+    .nav-links a:hover,
+    .nav-links a:focus-visible,
+    .nav-links a[aria-current="page"] { color: var(--c-text); }
+    .nav-links a:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 3px; border-radius: 3px; }
+
+    @media (max-width: 680px) { .nav-links { display: none; } }
+
+    /* ═══════════════════════════════════════════════════
+       SECTION SCAFFOLDING
+    ═══════════════════════════════════════════════════ */
+    section { padding: var(--sp-3xl) var(--sp-lg); }
+
+    .section-label {
+      display: block;
+      font: 600 10px/1 var(--font-mono);
+      letter-spacing: 1.8px; text-transform: uppercase;
+      color: var(--c-primary); margin-bottom: 14px;
+    }
+
+    .section-title {
+      font: 700 clamp(22px, 3.5vw, 38px)/1.15 var(--font-mono);
+      letter-spacing: -0.025em; margin-bottom: 14px;
+    }
+
+    .section-sub { font-size: 15px; color: var(--c-sub); max-width: 500px; line-height: 1.75; }
+
+    .section-header-centered { text-align: center; max-width: 620px; margin: 0 auto var(--sp-2xl); }
+    .section-header-centered .section-sub { margin: 0 auto; }
+
+    /* ═══════════════════════════════════════════════════
+       REVEAL ANIMATIONS
+    ═══════════════════════════════════════════════════ */
+    .reveal {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.in-view { opacity: 1; transform: translateY(0); }
+
+    /* ═══════════════════════════════════════════════════
+       HERO
+    ═══════════════════════════════════════════════════ */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 110px var(--sp-lg) var(--sp-3xl);
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+
+    /* Radial glow */
+    .hero::before {
+      content: '';
+      position: absolute; top: 50%; left: 50%;
+      width: 1000px; height: 600px;
+      transform: translate(-50%, -60%);
+      background: radial-gradient(ellipse, rgba(91,141,238,0.11) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+    .hero > * { position: relative; z-index: 1; }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 14px;
+      border: 1px solid rgba(91,141,238,0.22);
+      border-radius: 20px;
+      background: rgba(91,141,238,0.07);
+      font: 600 11px/1 var(--font-mono);
+      letter-spacing: 0.3px;
+      color: var(--c-primary);
+      margin-bottom: var(--sp-lg);
+    }
+    .hero-eyebrow .pulse {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--c-pass);
+      flex-shrink: 0;
+      box-shadow: 0 0 0 0 rgba(79,201,138,0.4);
+      animation: pulse-ring 2.2s ease-out infinite;
+    }
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(79,201,138,0.45); }
+      70%  { box-shadow: 0 0 0 7px rgba(79,201,138,0); }
+      100% { box-shadow: 0 0 0 0 rgba(79,201,138,0); }
+    }
+
+    .hero h1 {
+      font: 700 clamp(34px, 5.5vw, 66px)/1.08 var(--font-mono);
+      letter-spacing: -0.035em;
+      max-width: 830px; margin: 0 auto var(--sp-md);
+    }
+    .hero h1 em { font-style: normal; color: var(--c-primary); }
+
+    .hero-sub {
+      font-size: clamp(14px, 1.8vw, 17px);
+      color: var(--c-sub); max-width: 540px;
+      margin: 0 auto var(--sp-xl); line-height: 1.75;
+    }
+
+    .hero-ctas {
+      display: flex; align-items: center; justify-content: center;
+      gap: var(--sp-md); flex-wrap: wrap;
+      margin-bottom: var(--sp-3xl);
+    }
+
+    /* ── Popup mock ── */
+    .popup-mock {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border-md);
+      border-radius: 10px;
+      width: 318px;
+      overflow: hidden;
+      box-shadow: 0 28px 90px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .mock-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--c-border);
+      background: var(--c-surface2);
+    }
+    .mock-logo {
+      display: flex; align-items: center; gap: 6px;
+      font: 700 13px/1 var(--font-mono); color: var(--c-primary);
+    }
+    .mock-run-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 5px 11px; border-radius: var(--radius);
+      background: var(--c-primary); color: #06080e;
+      font: 700 11px/1 var(--font-sans);
+      border: none; cursor: default; pointer-events: none;
+    }
+
+    .mock-body { padding: 12px; }
+
+    .mock-score-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px;
+      background: var(--c-bg);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius); margin-bottom: 9px;
+    }
+
+    .mock-ring-wrap { position: relative; width: 60px; height: 60px; flex-shrink: 0; }
+    .mock-ring { width: 60px; height: 60px; transform: rotate(-90deg); }
+    .ring-track   { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 5; }
+    .ring-progress {
+      fill: none; stroke: var(--c-pass); stroke-width: 5;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1.6s cubic-bezier(0.3,0,0.1,1);
+    }
+    .mock-ring-inner {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px;
+    }
+    .mock-score-num {
+      font: 800 16px/1 var(--font-mono);
+      color: var(--c-text);
+    }
+    .mock-score-grade { font-size: 10px; color: var(--c-sub); }
+
+    .mock-breakdown { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .mock-bd { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+    .mock-bd .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .mock-bd .lbl { flex: 1; color: var(--c-sub); }
+    .mock-bd .cnt { font: 700 11px/1 var(--font-mono); }
+    .mock-bd.critical .dot { background: var(--c-critical); }
+    .mock-bd.serious  .dot { background: var(--c-serious); }
+    .mock-bd.moderate .dot { background: var(--c-moderate); }
+    .mock-bd.minor    .dot { background: rgba(160,160,160,0.65); }
+    .mock-bd.critical .cnt { color: var(--c-critical); }
+    .mock-bd.serious  .cnt { color: var(--c-serious); }
+    .mock-bd.moderate .cnt { color: var(--c-moderate); }
+    .mock-bd.minor    .cnt { color: rgba(160,160,160,0.75); }
+
+    .mock-stats {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px; margin-bottom: 9px;
+    }
+    .mock-stat {
+      background: var(--c-bg); border: 1px solid var(--c-border);
+      border-radius: var(--radius); padding: 8px 5px; text-align: center;
+    }
+    .mock-stat-num {
+      display: block; font: 800 17px/1 var(--font-mono); margin-bottom: 3px;
+    }
+    .mock-stat-num.v  { color: var(--c-critical); }
+    .mock-stat-num.p  { color: var(--c-pass); }
+    .mock-stat-num.i  { color: var(--c-moderate); }
+    .mock-stat-lbl { font-size: 9px; color: var(--c-sub); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .mock-viols { display: flex; flex-direction: column; gap: 5px; }
+    .mock-viol-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 7px 8px;
+      background: var(--c-bg); border: 1px solid var(--c-border);
+      border-radius: 4px;
+      opacity: 0; transform: translateY(5px);
+      transition: opacity 0.4s, transform 0.4s;
+    }
+    .mock-viol-item.visible { opacity: 1; transform: translateY(0); }
+    .viol-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+    .viol-info { flex: 1; min-width: 0; }
+    .viol-id {
+      display: block; font: 600 11px/1 var(--font-mono); color: var(--c-text);
+      margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .viol-desc { font-size: 10px; color: var(--c-sub); line-height: 1.35; }
+    .viol-count { font: 600 10px/1 var(--font-mono); color: var(--c-sub); flex-shrink: 0; }
+
+    /* ═══════════════════════════════════════════════════
+       TRUST BAR
+    ═══════════════════════════════════════════════════ */
+    .trust-bar {
+      padding: var(--sp-md) var(--sp-lg);
+      border-top: 1px solid var(--c-border);
+      border-bottom: 1px solid var(--c-border);
+    }
+    .trust-inner {
+      display: flex; align-items: center; justify-content: center;
+      flex-wrap: wrap; gap: var(--sp-xl);
+      max-width: var(--container); margin: 0 auto;
+    }
+    .trust-item {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 500; color: var(--c-sub);
+    }
+    .trust-item svg { color: var(--c-primary); flex-shrink: 0; }
+    .trust-item strong { color: var(--c-text); font-weight: 700; }
+
+    /* ═══════════════════════════════════════════════════
+       FEATURES GRID
+    ═══════════════════════════════════════════════════ */
+    .features-section {
+      background: var(--c-surface2);
+      border-top: 1px solid var(--c-border);
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1px; background: var(--c-border);
+      border: 1px solid var(--c-border); border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    @media (max-width: 880px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 540px) { .features-grid { grid-template-columns: 1fr; } }
+
+    .feature-card {
+      background: var(--c-surface);
+      padding: var(--sp-xl) var(--sp-lg);
+      display: flex; flex-direction: column; gap: var(--sp-md);
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .feature-card.in-view { opacity: 1; transform: translateY(0); }
+    .feature-card:nth-child(1) { transition-delay:   0ms; }
+    .feature-card:nth-child(2) { transition-delay:  55ms; }
+    .feature-card:nth-child(3) { transition-delay: 110ms; }
+    .feature-card:nth-child(4) { transition-delay: 165ms; }
+    .feature-card:nth-child(5) { transition-delay: 220ms; }
+    .feature-card:nth-child(6) { transition-delay: 275ms; }
+
+    .feature-icon {
+      width: 40px; height: 40px;
+      background: rgba(91,141,238,0.1);
+      border: 1px solid rgba(91,141,238,0.2);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--c-primary); flex-shrink: 0;
+    }
+    .feature-name { font: 700 14px/1.2 var(--font-mono); color: var(--c-text); }
+    .feature-desc { font-size: 13px; color: var(--c-sub); line-height: 1.65; flex: 1; }
+
+    /* ═══════════════════════════════════════════════════
+       HOW IT WORKS
+    ═══════════════════════════════════════════════════ */
+    .how-section {
+      background: var(--c-surface2);
+      border-top: 1px solid var(--c-border);
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: var(--sp-lg); list-style: none;
+      counter-reset: steps;
+      position: relative;
+    }
+    /* Connector line */
+    .steps-grid::before {
+      content: '';
+      position: absolute; top: 23px;
+      left: calc(12.5% + 22px); right: calc(12.5% + 22px);
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--c-border-md) 20%, var(--c-border-md) 80%, transparent);
+    }
+    @media (max-width: 860px) { .steps-grid { grid-template-columns: repeat(2,1fr); } .steps-grid::before { display: none; } }
+    @media (max-width: 440px) { .steps-grid { grid-template-columns: 1fr; } }
+
+    .step {
+      display: flex; flex-direction: column;
+      align-items: center; text-align: center;
+      gap: var(--sp-md); padding: var(--sp-md);
+    }
+    .step-num {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--c-surface3); border: 1px solid var(--c-border-md);
+      display: flex; align-items: center; justify-content: center;
+      font: 700 14px/1 var(--font-mono); color: var(--c-primary);
+      position: relative; z-index: 1; flex-shrink: 0;
+    }
+    .step-title { font: 700 13px/1.3 var(--font-mono); color: var(--c-text); }
+    .step-desc   { font-size: 12px; color: var(--c-sub); line-height: 1.65; }
+
+    /* ═══════════════════════════════════════════════════
+       SCORING
+    ═══════════════════════════════════════════════════ */
+    .scoring-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: var(--sp-2xl); align-items: start;
+      max-width: var(--container); margin: 0 auto;
+    }
+    @media (max-width: 760px) { .scoring-grid { grid-template-columns: 1fr; } }
+
+    .impact-list { display: flex; flex-direction: column; gap: 9px; }
+
+    .impact-row {
+      display: flex; align-items: center; gap: var(--sp-md);
+      padding: 13px var(--sp-md);
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      transition: background 0.14s, border-color 0.14s;
+      cursor: default;
+    }
+    .impact-row:hover { background: var(--c-surface3); }
+    .impact-row.critical:hover { border-color: rgba(255,80,80,0.28); }
+    .impact-row.serious:hover  { border-color: rgba(255,160,50,0.28); }
+    .impact-row.moderate:hover { border-color: rgba(255,210,50,0.24); }
+    .impact-row.minor:hover    { border-color: rgba(160,160,160,0.22); }
+    .impact-row.pass:hover     { border-color: rgba(79,201,138,0.28); }
+
+    .impact-pip {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .impact-row.critical .impact-pip { background: var(--c-critical); box-shadow: 0 0 7px rgba(255,80,80,0.4); }
+    .impact-row.serious  .impact-pip { background: var(--c-serious);  box-shadow: 0 0 7px rgba(255,160,50,0.4); }
+    .impact-row.moderate .impact-pip { background: var(--c-moderate); box-shadow: 0 0 7px rgba(255,210,50,0.35); }
+    .impact-row.minor    .impact-pip { background: rgba(160,160,160,0.65); }
+    .impact-row.pass     .impact-pip { background: var(--c-pass);     box-shadow: 0 0 7px rgba(79,201,138,0.3); }
+
+    .impact-info  { flex: 1; }
+    .impact-name  { display: block; font-size: 13px; font-weight: 600; color: var(--c-text); margin-bottom: 2px; }
+    .impact-descr { font-size: 11px; color: var(--c-sub); }
+
+    .impact-penalty { font: 700 12px/1 var(--font-mono); white-space: nowrap; }
+    .impact-row.critical .impact-penalty { color: var(--c-critical); }
+    .impact-row.serious  .impact-penalty { color: var(--c-serious); }
+    .impact-row.moderate .impact-penalty { color: var(--c-moderate); }
+    .impact-row.minor    .impact-penalty { color: rgba(160,160,160,0.75); }
+    .impact-row.pass     .impact-penalty { color: var(--c-pass); }
+
+    /* Grade table */
+    .grade-wrap {
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-lg); overflow: hidden;
+    }
+    .grade-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .grade-table th, .grade-table td {
+      padding: 10px 14px; text-align: left;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .grade-table tr:last-child td { border-bottom: none; }
+    .grade-table thead th {
+      font: 600 10px/1 var(--font-sans); letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--c-sub);
+      background: var(--c-surface2);
+    }
+    .grade-table td { color: var(--c-text); background: var(--c-surface); }
+    .grade-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 6px;
+      font: 800 13px/1 var(--font-mono);
+    }
+    .g-a { background: rgba(79,201,138,0.14); color: var(--c-pass);     border: 1px solid rgba(79,201,138,0.22); }
+    .g-b { background: rgba(91,141,238,0.14); color: var(--c-primary);  border: 1px solid rgba(91,141,238,0.22); }
+    .g-c { background: rgba(255,210,50,0.12); color: var(--c-moderate); border: 1px solid rgba(255,210,50,0.22); }
+    .g-d { background: rgba(255,160,50,0.12); color: var(--c-serious);  border: 1px solid rgba(255,160,50,0.22); }
+    .g-f { background: rgba(255,80,80,0.12);  color: var(--c-critical); border: 1px solid rgba(255,80,80,0.22); }
+
+    /* Disclaimer */
+    .disclaimer {
+      margin-top: var(--sp-md); padding: 11px var(--sp-md);
+      background: rgba(91,141,238,0.06); border: 1px solid rgba(91,141,238,0.14);
+      border-radius: var(--radius);
+      font-size: 12px; color: var(--c-sub); line-height: 1.6;
+    }
+    .disclaimer strong { color: var(--c-text); }
+
+    /* ═══════════════════════════════════════════════════
+       STANDARDS
+    ═══════════════════════════════════════════════════ */
+    .standards-section {
+      background: var(--c-surface2);
+      border-top: 1px solid var(--c-border);
+      border-bottom: 1px solid var(--c-border);
+    }
+    .standards-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-md);
+    }
+    @media (max-width: 640px) { .standards-grid { grid-template-columns: 1fr; } }
+
+    .standard-card {
+      padding: var(--sp-lg);
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--radius-lg);
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .standard-title { font: 700 13px/1 var(--font-mono); color: var(--c-primary); }
+    .standard-subtitle { font-size: 12px; font-weight: 600; color: var(--c-text); }
+    .standard-desc { font-size: 12px; color: var(--c-sub); line-height: 1.65; }
+
+    /* ═══════════════════════════════════════════════════
+       INSTALL CTA
+    ═══════════════════════════════════════════════════ */
+    .install-section {
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .install-section::before {
+      content: '';
+      position: absolute; bottom: -120px; left: 50%;
+      width: 800px; height: 800px; transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(91,141,238,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .install-inner { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; }
+    .install-title {
+      font: 700 clamp(28px, 4.5vw, 50px)/1.1 var(--font-mono);
+      letter-spacing: -0.03em; margin-bottom: var(--sp-md);
+    }
+    .install-title em { font-style: normal; color: var(--c-primary); }
+    .install-sub { font-size: 16px; color: var(--c-sub); margin-bottom: var(--sp-xl); line-height: 1.75; }
+    .install-ctas { display: flex; justify-content: center; gap: var(--sp-md); flex-wrap: wrap; }
+    .install-note { margin-top: var(--sp-md); font-size: 12px; color: var(--c-sub); }
+
+    /* ═══════════════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════════════ */
+    footer {
+      padding: var(--sp-xl) var(--sp-lg);
+      border-top: 1px solid var(--c-border);
+    }
+    .footer-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: var(--sp-md);
+      max-width: var(--container); margin: 0 auto;
+    }
+    .footer-left { display: flex; align-items: center; gap: var(--sp-lg); flex-wrap: wrap; }
+    .footer-logo { font: 700 13px/1 var(--font-mono); color: var(--c-primary); }
+    .footer-copy { font-size: 12px; color: var(--c-sub); }
+    .footer-links { display: flex; gap: var(--sp-lg); list-style: none; flex-wrap: wrap; }
+    .footer-links a {
+      font-size: 12px; color: var(--c-sub); text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-links a:hover,
+    .footer-links a:focus-visible { color: var(--c-text); }
+    .footer-links a:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+  <!-- Skip to main content for keyboard / screen reader users -->
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- ════════════════ HEADER / NAV ════════════════ -->
+  <header class="site-header" role="banner">
+    <nav class="nav-inner" aria-label="Main navigation">
+      <a class="nav-logo" href="#" aria-label="a11y DevTools — go to top">
+        <!-- Inline logo icon: accessibility figure + magnifying glass -->
+        <svg class="nav-logo-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5" stroke="#5b8dee" stroke-width="2"/>
+          <circle cx="12" cy="9.2" r="1.8" fill="#5b8dee"/>
+          <path d="M10.2 12.5h3.6M12 12.5v4.5" stroke="#5b8dee" stroke-width="1.9" stroke-linecap="round"/>
+          <line x1="18.5" y1="18.5" x2="25" y2="25" stroke="#5b8dee" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <span class="nav-logo-name">A11y</span>
+        <span class="nav-logo-sep" aria-hidden="true">/</span>
+        <span class="nav-logo-sub">DevTools</span>
+      </a>
+
+      <ul class="nav-links" role="list">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How it works</a></li>
+        <li><a href="#scoring">Scoring</a></li>
+        <li><a href="#install">Install</a></li>
+      </ul>
+
+      <a class="btn btn-primary"
+         href="https://github.com/elias-michaias/a11y-devtools-ext"
+         rel="noopener noreferrer" target="_blank"
+         aria-label="View source on GitHub (opens in new tab)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0
+            0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20
+            4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38
+            0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5
+            4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37
+            3.37 0 0 0 9 18.13V22"/>
+        </svg>
+        GitHub
+      </a>
+    </nav>
+  </header>
+
+  <!-- ════════════════ MAIN ════════════════ -->
+  <main id="main-content">
+
+    <!-- ─────────────── HERO ─────────────── -->
+    <section class="hero" aria-labelledby="hero-heading">
+      <div class="hero-eyebrow" aria-label="Open source, powered by axe-core">
+        <span class="pulse" aria-hidden="true"></span>
+        Open Source · Powered by axe-core 4.9
+      </div>
+
+      <h1 id="hero-heading">
+        Web <em>Accessibility</em><br>Testing for Developers
+      </h1>
+
+      <p class="hero-sub">
+        Scan WCAG 2.1/2.2 AA violations in real-time. Get a 0–100 score,
+        colored DOM overlays, and a full DevTools panel — all inside Chrome.
+      </p>
+
+      <div class="hero-ctas">
+        <a class="btn btn-primary btn-lg btn-shimmer"
+           href="#install"
+           aria-label="Install a11y DevTools extension for Chrome">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <polyline points="8 17 12 21 16 17"/>
+            <line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/>
+          </svg>
+          Add to Chrome — Free
+        </a>
+        <a class="btn btn-ghost btn-lg"
+           href="https://github.com/elias-michaias/a11y-devtools-ext"
+           rel="noopener noreferrer" target="_blank"
+           aria-label="View source code on GitHub (opens in new tab)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0
+              0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20
+              4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38
+              0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5
+              4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37
+              3.37 0 0 0 9 18.13V22"/>
+          </svg>
+          View Source
+        </a>
+      </div>
+
+      <!-- Interactive popup mockup demo -->
+      <div aria-hidden="true" role="presentation">
+        <div class="popup-mock">
+          <div class="mock-header">
+            <div class="mock-logo">
+              <svg width="13" height="13" viewBox="0 0 28 28" fill="none">
+                <circle cx="12" cy="12" r="8.5" stroke="#5b8dee" stroke-width="2"/>
+                <circle cx="12" cy="9.2" r="1.8" fill="#5b8dee"/>
+                <path d="M10.2 12.5h3.6M12 12.5v4.5" stroke="#5b8dee" stroke-width="1.9" stroke-linecap="round"/>
+                <line x1="18.5" y1="18.5" x2="25" y2="25" stroke="#5b8dee" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+              a11y DevTools
+            </div>
+            <div class="mock-run-btn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              Run Quick Scan
+            </div>
+          </div>
+
+          <div class="mock-body">
+            <!-- Score ring + breakdown -->
+            <div class="mock-score-row">
+              <div class="mock-ring-wrap">
+                <svg class="mock-ring" viewBox="0 0 60 60">
+                  <circle class="ring-track" cx="30" cy="30" r="24"/>
+                  <circle id="demo-ring" class="ring-progress"
+                          cx="30" cy="30" r="24"
+                          stroke-dasharray="150.796"
+                          stroke-dashoffset="150.796"/>
+                </svg>
+                <div class="mock-ring-inner">
+                  <span class="mock-score-num" id="demo-score">0</span>
+                  <span class="mock-score-grade" id="demo-grade">—</span>
+                </div>
+              </div>
+              <div class="mock-breakdown">
+                <div class="mock-bd critical">
+                  <span class="dot"></span><span class="lbl">Critical</span>
+                  <span class="cnt" id="cnt-critical">0</span>
+                </div>
+                <div class="mock-bd serious">
+                  <span class="dot"></span><span class="lbl">Serious</span>
+                  <span class="cnt" id="cnt-serious">0</span>
+                </div>
+                <div class="mock-bd moderate">
+                  <span class="dot"></span><span class="lbl">Moderate</span>
+                  <span class="cnt" id="cnt-moderate">0</span>
+                </div>
+                <div class="mock-bd minor">
+                  <span class="dot"></span><span class="lbl">Minor</span>
+                  <span class="cnt" id="cnt-minor">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="mock-stats">
+              <div class="mock-stat">
+                <span class="mock-stat-num v" id="stat-v">0</span>
+                <span class="mock-stat-lbl">Violations</span>
+              </div>
+              <div class="mock-stat">
+                <span class="mock-stat-num p" id="stat-p">0</span>
+                <span class="mock-stat-lbl">Passes</span>
+              </div>
+              <div class="mock-stat">
+                <span class="mock-stat-num i" id="stat-i">0</span>
+                <span class="mock-stat-lbl">Incomplete</span>
+              </div>
+            </div>
+
+            <!-- Violation list (animated) -->
+            <div class="mock-viols">
+              <div class="mock-viol-item">
+                <span class="viol-dot" style="background:var(--c-serious)"></span>
+                <div class="viol-info">
+                  <span class="viol-id">color-contrast</span>
+                  <span class="viol-desc">Elements must meet minimum contrast ratio</span>
+                </div>
+                <span class="viol-count">3 el.</span>
+              </div>
+              <div class="mock-viol-item">
+                <span class="viol-dot" style="background:var(--c-critical)"></span>
+                <div class="viol-info">
+                  <span class="viol-id">image-alt</span>
+                  <span class="viol-desc">Images must have alternative text</span>
+                </div>
+                <span class="viol-count">2 el.</span>
+              </div>
+              <div class="mock-viol-item">
+                <span class="viol-dot" style="background:var(--c-moderate)"></span>
+                <div class="viol-info">
+                  <span class="viol-id">landmark-one-main</span>
+                  <span class="viol-desc">Page must have one main landmark</span>
+                </div>
+                <span class="viol-count">1 el.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────── TRUST BAR ─────────────── -->
+    <div class="trust-bar" role="complementary" aria-label="Technologies and standards">
+      <div class="trust-inner">
+        <div class="trust-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Powered by <strong>axe-core 4.9</strong></span>
+        </div>
+        <div class="trust-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <polyline points="9 11 12 14 22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          <span><strong>WCAG 2.1 / 2.2</strong> AA</span>
+        </div>
+        <div class="trust-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span><strong>Manifest V3</strong> · Chrome</span>
+        </div>
+        <div class="trust-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/>
+          </svg>
+          <span><strong>Open Source</strong> · MIT</span>
+        </div>
+        <div class="trust-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+            <polyline points="13 2 13 9 20 9"/>
+          </svg>
+          <span><strong>JSON</strong> Export</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────── FEATURES ─────────────── -->
+    <section id="features" class="features-section" aria-labelledby="features-heading">
+      <div class="container">
+        <div class="section-header-centered reveal">
+          <span class="section-label">Features</span>
+          <h2 class="section-title" id="features-heading">
+            Everything you need to fix accessibility
+          </h2>
+          <p class="section-sub">
+            From a quick popup score to a deep-dive DevTools panel —
+            a11y DevTools covers the full testing workflow.
+          </p>
+        </div>
+
+        <div class="features-grid" role="list">
+
+          <article class="feature-card" role="listitem">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </div>
+            <h3 class="feature-name">axe-core Engine</h3>
+            <p class="feature-desc">
+              Runs the industry-standard axe-core 4.9 engine against all WCAG 2.1/2.2 AA
+              rules and best-practice checks — the same engine used by major enterprise teams.
+            </p>
+          </article>
+
+          <article class="feature-card" role="listitem">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <h3 class="feature-name">Score 0–100</h3>
+            <p class="feature-desc">
+              A single actionable score with letter grade A–F, calculated from violation
+              counts weighted by impact level. Track page improvements over time.
+            </p>
+          </article>
+
+          <article class="feature-card" role="listitem">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </div>
+            <h3 class="feature-name">DOM Highlighting</h3>
+            <p class="feature-desc">
+              Colored overlays paint directly onto the live page — red for critical, orange
+              for serious, yellow for moderate. Hover overlays show remediation tooltips.
+            </p>
+          </article>
+
+          <article class="feature-card" role="listitem">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <h3 class="feature-name">DevTools Panel</h3>
+            <p class="feature-desc">
+              A full split-view panel inside Chrome DevTools — violations list, detail
+              view with remediation hints, element picker, and impact filter chips.
+            </p>
+          </article>
+
+          <article class="feature-card" role="listitem">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="M7 8h2M12 8h2M17 8h1M7 12h2M12 12h5M7 16h8"/>
+              </svg>
+            </div>
+            <h3 class="feature-name">Keyboard Navigation</h3>
+            <p class="feature-desc">
+              Navigate violations with ↑↓ arrow keys, jump to page elements with ← →,
+              and expand detail sections — full zero-mouse workflow.
+            </p>
+          </article>
+
+          <article class="feature-card" role="listitem">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </div>
+            <h3 class="feature-name">Export JSON</h3>
+            <p class="feature-desc">
+              Download the complete axe-core results as structured JSON for
+              CI pipelines, issue trackers, or formal accessibility audits.
+            </p>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────── HOW IT WORKS ─────────────── -->
+    <section id="how-it-works" class="how-section" aria-labelledby="how-heading">
+      <div class="container">
+        <div class="section-header-centered reveal">
+          <span class="section-label">Workflow</span>
+          <h2 class="section-title" id="how-heading">
+            From install to insights in seconds
+          </h2>
+        </div>
+
+        <ol class="steps-grid" aria-label="Steps to use a11y DevTools">
+          <li class="step reveal">
+            <div class="step-num" aria-hidden="true">01</div>
+            <span class="step-title">Install the extension</span>
+            <p class="step-desc">
+              Add a11y DevTools to Chrome from the Web Store. One click, no account needed.
+            </p>
+          </li>
+          <li class="step reveal" style="transition-delay:80ms">
+            <div class="step-num" aria-hidden="true">02</div>
+            <span class="step-title">Open any webpage</span>
+            <p class="step-desc">
+              Navigate to any live site or localhost. Works on any HTTP/HTTPS page.
+            </p>
+          </li>
+          <li class="step reveal" style="transition-delay:160ms">
+            <div class="step-num" aria-hidden="true">03</div>
+            <span class="step-title">Run a scan</span>
+            <p class="step-desc">
+              Click the toolbar popup or open DevTools → a11y panel and hit "Run Quick Scan".
+            </p>
+          </li>
+          <li class="step reveal" style="transition-delay:240ms">
+            <div class="step-num" aria-hidden="true">04</div>
+            <span class="step-title">Fix violations</span>
+            <p class="step-desc">
+              Highlighted elements, descriptions, and fix guidance. Rescan instantly to verify.
+            </p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ─────────────── SCORING ─────────────── -->
+    <section id="scoring" aria-labelledby="scoring-heading">
+      <div class="container">
+        <div class="scoring-grid">
+
+          <!-- Left: impact list -->
+          <div>
+            <div class="section-header reveal" style="margin-bottom: var(--sp-xl)">
+              <span class="section-label">Scoring</span>
+              <h2 class="section-title" id="scoring-heading">Weighted impact scoring</h2>
+              <p class="section-sub">
+                Every violation is penalized based on how severely it impacts people with
+                disabilities. The score starts at 100 and deducts points per violating node.
+              </p>
+            </div>
+
+            <div class="impact-list reveal" role="list" aria-label="Impact levels and penalties">
+              <div class="impact-row critical" role="listitem">
+                <div class="impact-pip" aria-hidden="true"></div>
+                <div class="impact-info">
+                  <span class="impact-name">Critical</span>
+                  <span class="impact-descr">Blocks screen reader users entirely</span>
+                </div>
+                <span class="impact-penalty" aria-label="minus 10 points per node">−10 / node</span>
+              </div>
+              <div class="impact-row serious" role="listitem">
+                <div class="impact-pip" aria-hidden="true"></div>
+                <div class="impact-info">
+                  <span class="impact-name">Serious</span>
+                  <span class="impact-descr">Significantly impairs assistive technology</span>
+                </div>
+                <span class="impact-penalty" aria-label="minus 7 points per node">−7 / node</span>
+              </div>
+              <div class="impact-row moderate" role="listitem">
+                <div class="impact-pip" aria-hidden="true"></div>
+                <div class="impact-info">
+                  <span class="impact-name">Moderate</span>
+                  <span class="impact-descr">Creates barriers but has workarounds</span>
+                </div>
+                <span class="impact-penalty" aria-label="minus 4 points per node">−4 / node</span>
+              </div>
+              <div class="impact-row minor" role="listitem">
+                <div class="impact-pip" aria-hidden="true"></div>
+                <div class="impact-info">
+                  <span class="impact-name">Minor</span>
+                  <span class="impact-descr">Minor annoyances and best-practice issues</span>
+                </div>
+                <span class="impact-penalty" aria-label="minus 2 points per node">−2 / node</span>
+              </div>
+              <div class="impact-row pass" role="listitem">
+                <div class="impact-pip" aria-hidden="true"></div>
+                <div class="impact-info">
+                  <span class="impact-name">Pass</span>
+                  <span class="impact-descr">Rule fully compliant — no penalty</span>
+                </div>
+                <span class="impact-penalty" aria-label="no penalty">+0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: grade table -->
+          <div class="reveal">
+            <div class="grade-wrap">
+              <table class="grade-table">
+                <caption class="sr-only">Accessibility score grades and thresholds</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Grade</th>
+                    <th scope="col">Score</th>
+                    <th scope="col">Interpretation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="grade-badge g-a" aria-label="Grade A">A</span></td>
+                    <td>90 – 100</td>
+                    <td>Excellent — production ready</td>
+                  </tr>
+                  <tr>
+                    <td><span class="grade-badge g-b" aria-label="Grade B">B</span></td>
+                    <td>75 – 89</td>
+                    <td>Good — minor fixes needed</td>
+                  </tr>
+                  <tr>
+                    <td><span class="grade-badge g-c" aria-label="Grade C">C</span></td>
+                    <td>50 – 74</td>
+                    <td>Fair — several issues to address</td>
+                  </tr>
+                  <tr>
+                    <td><span class="grade-badge g-d" aria-label="Grade D">D</span></td>
+                    <td>25 – 49</td>
+                    <td>Poor — significant barriers present</td>
+                  </tr>
+                  <tr>
+                    <td><span class="grade-badge g-f" aria-label="Grade F">F</span></td>
+                    <td>0 – 24</td>
+                    <td>Critical — major remediation required</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="disclaimer">
+              <strong>Disclaimer:</strong> This is an independent open-source project.
+              Not affiliated with, endorsed by, or associated with Deque Systems or their products.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────── STANDARDS ─────────────── -->
+    <section class="standards-section" aria-labelledby="standards-heading">
+      <div class="container">
+        <div class="section-header-centered reveal">
+          <span class="section-label">Standards</span>
+          <h2 class="section-title" id="standards-heading">WCAG compliance coverage</h2>
+          <p class="section-sub">Comprehensive rule coverage across all applicable guidelines.</p>
+        </div>
+
+        <div class="standards-grid">
+          <div class="standard-card reveal">
+            <span class="standard-title">WCAG 2.1 AA</span>
+            <span class="standard-subtitle">Web Content Accessibility Guidelines</span>
+            <p class="standard-desc">
+              Full coverage of perceivable, operable, understandable, and robust success
+              criteria at the AA conformance level.
+            </p>
+          </div>
+          <div class="standard-card reveal" style="transition-delay:70ms">
+            <span class="standard-title">WCAG 2.2 AA</span>
+            <span class="standard-subtitle">Latest Guidelines (2023)</span>
+            <p class="standard-desc">
+              Includes new 2.2 criteria: focus appearance, dragging movements,
+              target size minimum, and consistent help patterns.
+            </p>
+          </div>
+          <div class="standard-card reveal" style="transition-delay:140ms">
+            <span class="standard-title">Best Practices</span>
+            <span class="standard-subtitle">Beyond Strict Compliance</span>
+            <p class="standard-desc">
+              Additional axe-core best-practice rules that improve UX for assistive
+              technology users even when not strictly required by WCAG.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────── INSTALL CTA ─────────────── -->
+    <section id="install" class="install-section" aria-labelledby="install-heading">
+      <div class="install-inner">
+        <span class="section-label reveal" style="display:block; margin-bottom:14px">
+          Free · Open Source · No account
+        </span>
+        <h2 class="install-title reveal" id="install-heading">
+          Start testing<br><em>accessibility</em> today
+        </h2>
+        <p class="install-sub reveal">
+          Zero configuration. Everything runs locally — no data is sent to any external server.
+        </p>
+        <div class="install-ctas reveal">
+          <a class="btn btn-primary btn-lg btn-shimmer"
+             href="https://chrome.google.com/webstore"
+             rel="noopener noreferrer" target="_blank"
+             aria-label="Add a11y DevTools to Chrome (opens Chrome Web Store in new tab)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <polyline points="8 17 12 21 16 17"/>
+              <line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/>
+            </svg>
+            Add to Chrome — Free
+          </a>
+          <a class="btn btn-ghost btn-lg"
+             href="https://github.com/elias-michaias/a11y-devtools-ext"
+             rel="noopener noreferrer" target="_blank"
+             aria-label="Star a11y DevTools on GitHub (opens in new tab)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Star on GitHub
+          </a>
+        </div>
+        <p class="install-note reveal">
+          Requires Chrome 109+. Works on any HTTP/HTTPS page including localhost.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ════════════════ FOOTER ════════════════ -->
+  <footer role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <span class="footer-logo">A11y DevTools</span>
+        <span class="footer-copy">© 2025 · MIT License</span>
+      </div>
+      <ul class="footer-links" role="list">
+        <li>
+          <a href="https://github.com/elias-michaias/a11y-devtools-ext"
+             rel="noopener noreferrer" target="_blank">GitHub</a>
+        </li>
+        <li>
+          <a href="https://github.com/dequelabs/axe-core"
+             rel="noopener noreferrer" target="_blank">axe-core</a>
+        </li>
+        <li>
+          <a href="https://www.w3.org/WAI/WCAG21/quickref/"
+             rel="noopener noreferrer" target="_blank">WCAG 2.1</a>
+        </li>
+        <li>
+          <a href="https://github.com/elias-michaias/a11y-devtools-ext/blob/main/LICENSES.md"
+             rel="noopener noreferrer" target="_blank">Licenses</a>
+        </li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- ════════════════ SCRIPTS ════════════════ -->
+  <script>
+    /* ─────────────────────────────────────────────────
+       a11y DevTools Landing Page — JavaScript
+       Security: no innerHTML with untrusted data,
+       no eval(), no dynamic script loading.
+    ───────────────────────────────────────────────── */
+    (function () {
+      'use strict';
+
+      /* ── Constants ── */
+      var DEMO_SCORE       = 87;
+      var DEMO_GRADE       = 'B';
+      var DEMO_BREAKDOWN   = { critical: 1, serious: 3, moderate: 2, minor: 4 };
+      var RING_CIRCUMF     = 150.796; /* 2π × 24 (radius) */
+      var ANIM_DURATION    = 1500;    /* ms */
+      var prefersReduced   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      /* ── Utility: count-up animation ── */
+      function countUp(el, from, to, duration) {
+        if (!el) return;
+        if (prefersReduced) { el.textContent = to; return; }
+        var start = performance.now();
+        function tick(now) {
+          var elapsed  = now - start;
+          var progress = Math.min(elapsed / duration, 1);
+          var eased    = 1 - Math.pow(1 - progress, 3); /* cubic ease-out */
+          el.textContent = Math.round(from + (to - from) * eased);
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      /* ── Hero score ring + counters ── */
+      function startHeroDemo() {
+        var ring     = document.getElementById('demo-ring');
+        var scoreEl  = document.getElementById('demo-score');
+        var gradeEl  = document.getElementById('demo-grade');
+        var statV    = document.getElementById('stat-v');
+        var statP    = document.getElementById('stat-p');
+        var statI    = document.getElementById('stat-i');
+        var cntCrit  = document.getElementById('cnt-critical');
+        var cntSer   = document.getElementById('cnt-serious');
+        var cntMod   = document.getElementById('cnt-moderate');
+        var cntMin   = document.getElementById('cnt-minor');
+
+        /* Start ring animation after brief delay */
+        setTimeout(function () {
+          if (ring) {
+            ring.style.strokeDashoffset = RING_CIRCUMF * (1 - DEMO_SCORE / 100);
+          }
+        }, 500);
+
+        /* Counters */
+        setTimeout(function () {
+          countUp(scoreEl, 0, DEMO_SCORE, ANIM_DURATION);
+          countUp(statV,   0, 5,          1200);
+          countUp(statP,   0, 34,         1200);
+          countUp(statI,   0, 8,          1200);
+
+          setTimeout(function () {
+            if (cntCrit) cntCrit.textContent = DEMO_BREAKDOWN.critical;
+            if (cntSer)  cntSer.textContent  = DEMO_BREAKDOWN.serious;
+            if (cntMod)  cntMod.textContent  = DEMO_BREAKDOWN.moderate;
+            if (cntMin)  cntMin.textContent  = DEMO_BREAKDOWN.minor;
+            if (gradeEl) gradeEl.textContent = DEMO_GRADE;
+          }, 400);
+        }, 600);
+
+        /* Stagger violation items in */
+        var violItems = document.querySelectorAll('.mock-viol-item');
+        violItems.forEach(function (item, i) {
+          setTimeout(function () {
+            item.classList.add('visible');
+          }, 850 + i * 190);
+        });
+      }
+
+      /* ── Scroll-triggered reveal (IntersectionObserver) ── */
+      function setupReveal() {
+        var targets = document.querySelectorAll('.reveal, .feature-card');
+
+        if (prefersReduced) {
+          targets.forEach(function (el) { el.classList.add('in-view'); });
+          return;
+        }
+
+        if (!('IntersectionObserver' in window)) {
+          targets.forEach(function (el) { el.classList.add('in-view'); });
+          return;
+        }
+
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in-view');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+
+        targets.forEach(function (el) { io.observe(el); });
+      }
+
+      /* ── Active nav link on scroll ── */
+      function setupNavHighlight() {
+        var sections = document.querySelectorAll('section[id]');
+        var navLinks = document.querySelectorAll('.nav-links a');
+        if (!sections.length || !navLinks.length) return;
+
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            var id = entry.target.id;
+            navLinks.forEach(function (link) {
+              var isActive = link.getAttribute('href') === '#' + id;
+              if (isActive) {
+                link.setAttribute('aria-current', 'page');
+              } else {
+                link.removeAttribute('aria-current');
+              }
+            });
+          });
+        }, { threshold: 0.4 });
+
+        sections.forEach(function (s) { io.observe(s); });
+      }
+
+      /* ── Accessible smooth scroll ── */
+      function setupSmoothScroll() {
+        document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+          anchor.addEventListener('click', function (e) {
+            var id = this.getAttribute('href').slice(1);
+            if (!id) return;
+            var target = document.getElementById(id);
+            if (!target) return;
+            e.preventDefault();
+            target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
+            /* Move focus to section for keyboard/screen reader users */
+            if (!target.hasAttribute('tabindex')) {
+              target.setAttribute('tabindex', '-1');
+            }
+            target.focus({ preventScroll: true });
+          });
+        });
+      }
+
+      /* ── Init ── */
+      function init() {
+        startHeroDemo();
+        setupReveal();
+        setupNavHighlight();
+        setupSmoothScroll();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+
+    })();
+  </script>
+</body>
+</html>
