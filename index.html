@@ -5,16 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Security: all assets served from same origin -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self';">
+        content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'self'; form-action 'self';">
   <title>a11y DevTools — Web Accessibility Testing Extension</title>
   <meta name="description"
         content="Advanced Chrome extension for web accessibility testing. Powered by axe-core with WCAG 2.1/2.2 AA compliance scoring, DOM highlighting, and full DevTools panel integration.">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#070a10">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta property="og:type" content="website">
   <meta property="og:title" content="a11y DevTools — Web Accessibility Testing Extension">
   <meta property="og:description" content="Scan, score, and fix web accessibility issues in real-time. Score 0–100 powered by axe-core.">
   <meta property="og:image"       content="./og-image.png">
+  <meta property="og:site_name"   content="a11y DevTools">
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="a11y DevTools — Web Accessibility Testing Extension">
+  <meta name="twitter:description" content="Scan, score, and fix web accessibility issues in real-time. Score 0–100 powered by axe-core.">
+  <meta name="twitter:image"       content="./og-image.png">
 
   <link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
@@ -25,9 +32,28 @@
 
 
   <link rel="stylesheet" href="styles.css">
-
-  <!-- Preload critical CSS for performance -->
-  <link rel="preload" href="styles.css" as="style">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "a11y DevTools",
+    "description": "Advanced Chrome extension for web accessibility testing. Powered by axe-core with WCAG 2.1/2.2 AA compliance scoring, DOM highlighting, and full DevTools panel integration.",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Chrome 109+",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "downloadUrl": "https://chromewebstore.google.com/detail/idikmoknbihljafgbjbbngnfogbnbjkb",
+    "url": "https://github.com/EliasrmDev/a11y-devtools-ext",
+    "license": "https://opensource.org/licenses/MIT",
+    "author": {
+      "@type": "Person",
+      "name": "Elias Rojas"
+    }
+  }
+  </script>
 </head>
 <body>
 
@@ -651,6 +677,6 @@
   </footer>
 
   <!-- ════════════════ SCRIPTS ════════════════ -->
-   <script src="./main.js"></script>
+  <script src="./main.js" defer></script>
 </body>
 </html>
