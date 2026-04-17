@@ -4,7 +4,7 @@ import type { CryptoPort } from "../../../domain/ports/crypto.port.js";
 import type { UsageRepository } from "../../../domain/ports/usage.repository.js";
 import { createAiClient } from "../../../infrastructure/ai-providers/client.factory.js";
 import { NotFoundError, DomainError } from "../../../domain/errors/index.js";
-import type { ProviderType } from "../../../shared/types.js";
+import type { ProviderType, AiBinding } from "../../../shared/types.js";
 import type { AiProxyInput, AiProxyOutput } from "../../dto/proxy.dto.js";
 import { PROXY } from "../../../shared/constants.js";
 
@@ -14,6 +14,7 @@ export class AiProxyUseCase {
     private readonly secrets: SecretRepository,
     private readonly crypto: CryptoPort,
     private readonly usage: UsageRepository,
+    private readonly ai?: AiBinding,
   ) {}
 
   async execute(
@@ -67,7 +68,7 @@ export class AiProxyUseCase {
     }
 
     // 5. Create AI client and execute
-    const client = createAiClient(connection.providerType as ProviderType);
+    const client = createAiClient(connection.providerType as ProviderType, this.ai);
 
     try {
       if (input.stream) {

@@ -11,6 +11,7 @@ export const accessibilitySuggestInputSchema = z
   .object({
     connectionId: z.string().uuid(),
     model: z.string().min(1).max(100),
+    lang: z.string().min(2).max(10).default("en"),
     ruleId: z.string().min(1).max(100),
     help: z.string().min(1).max(500),
     description: z.string().min(1).max(1_000),

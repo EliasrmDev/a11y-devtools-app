@@ -46,6 +46,10 @@ simple = { limit = 20, period = 60 }
 [triggers]
 crons = ["* * * * *"]
 
+# ── Cloudflare Workers AI binding ────────────────────────────────────────────
+[ai]
+binding = "AI"
+
 # ── Development environment ───────────────────────────────────────────────────
 [env.dev]
 vars = { ENVIRONMENT = "development", AUTH_PROVIDER = "better-auth" }

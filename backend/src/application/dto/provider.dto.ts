@@ -19,7 +19,7 @@ const customHeaderSchema = z
 
 export const createConnectionInputSchema = z
   .object({
-    providerType: z.enum(["openai", "anthropic", "openrouter", "custom"]),
+    providerType: z.enum(["openai", "anthropic", "openrouter", "gemini", "groq", "cloudflare", "custom"]),
     displayName: z.string().min(1).max(100),
     apiKey: z.string().min(1),
     baseUrl: z.string().url().optional(),

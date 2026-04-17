@@ -24,6 +24,9 @@ export interface CloudflareBindings extends Env {
   RATE_LIMITER_AUTH: RateLimit;
   RATE_LIMITER_API: RateLimit;
   RATE_LIMITER_PROXY: RateLimit;
+  /** Cloudflare Workers AI binding — available when [ai] is set in wrangler.toml */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AI?: { run(model: string, input: Record<string, unknown>): Promise<any> };
 }
 
 interface RateLimit {

@@ -35,6 +35,11 @@ Strict rules:
 - recommendedFix: max 1000 characters.
 - codeExample: max 2000 characters when present, otherwise null.`;
 
+function langInstruction(lang: string): string {
+  if (!lang || lang === "en") return "";
+  return `\n- Write ALL text fields (shortExplanation, userImpact, recommendedFix, codeExample, warnings) in the language with BCP-47 code "${lang}". Code snippets must remain in the original programming language.`;
+}
+
 export function buildAccessibilityPrompt(
   violation: AccessibilitySuggestInput,
 ): AiMessage[] {
@@ -58,7 +63,7 @@ export function buildAccessibilityPrompt(
   return [
     {
       role: "system",
-      content: SYSTEM_PROMPT,
+      content: SYSTEM_PROMPT + langInstruction(violation.lang ?? "en"),
     },
     {
       role: "user",

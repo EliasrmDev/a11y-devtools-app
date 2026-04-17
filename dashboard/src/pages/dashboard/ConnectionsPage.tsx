@@ -28,7 +28,26 @@ import {
   Loader2,
 } from "lucide-react";
 
-const PROVIDER_TYPES = ["openai", "anthropic", "openrouter", "custom"] as const;
+const PROVIDER_OPTIONS = [
+  { value: "openai",     label: "OpenAI",               free: false, hint: "GPT-4o, o1, etc." },
+  { value: "anthropic",  label: "Anthropic",             free: false, hint: "Claude 3.x / Sonnet" },
+  { value: "openrouter", label: "OpenRouter",            free: true,  hint: "M\u00e1s flexible — 200+ modelos, algunos gratuitos" },
+  { value: "gemini",     label: "Google Gemini",         free: true,  hint: "Mejor opci\u00f3n gratuita en general" },
+  { value: "groq",       label: "Groq",                  free: true,  hint: "Mejor rendimiento y velocidad" },
+  { value: "cloudflare", label: "Cloudflare AI",         free: true,  hint: "Mejor integraci\u00f3n con este stack \u2014 sin API key" },
+  { value: "custom",     label: "Custom / Self-hosted",  free: false, hint: "Cualquier endpoint compatible con OpenAI" },
+] as const;
+
+type ProviderValue = typeof PROVIDER_OPTIONS[number]["value"];
+
+const FREE_PROVIDERS = new Set<string>(["openrouter", "gemini", "groq", "cloudflare"]);
+
+const API_KEY_LINKS: Record<string, { label: string; url: string } | string> = {
+  gemini:     { label: "Obtener API key gratuita", url: "https://aistudio.google.com/app/apikey" },
+  groq:       { label: "Obtener API key gratuita", url: "https://console.groq.com/keys" },
+  openrouter: { label: "Obtener API key", url: "https://openrouter.ai/keys" },
+  cloudflare: "Incluido gratis con tu plan de Cloudflare Workers — no se necesita API key",
+};
 
 export default function ConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -38,7 +57,7 @@ export default function ConnectionsPage() {
   const [testResult, setTestResult] = useState<Record<string, { success: boolean; error?: string }>>({});
 
   const [form, setForm] = useState({
-    providerType: "openai" as string,
+    providerType: "openai" as ProviderValue,
     displayName: "",
     apiKey: "",
     baseUrl: "",
@@ -136,7 +155,12 @@ export default function ConnectionsPage() {
                     {conn.providerType.slice(0, 2)}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-text">{conn.displayName}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-text">{conn.displayName}</p>
+                      {FREE_PROVIDERS.has(conn.providerType) && (
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-green-500/15 text-green-500">FREE</span>
+                      )}
+                    </div>
                     <p className="text-xs text-sub">
                       {conn.providerType}
                       {conn.baseUrl && <span className="ml-2 text-sub">{conn.baseUrl}</span>}
@@ -215,15 +239,28 @@ export default function ConnectionsPage() {
               <select
                 id="providerType"
                 value={form.providerType}
-                onChange={(e) => setForm((f) => ({ ...f, providerType: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, providerType: e.target.value as ProviderValue }))}
                 className="flex h-9 w-full rounded-[6px] border border-border-md bg-surface-2 px-3 py-1 text-sm text-text"
               >
-                {PROVIDER_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                {PROVIDER_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.free ? "\uD83C\uDD13 " : ""}{p.label}
                   </option>
                 ))}
               </select>
+              {(() => {
+                const opt = PROVIDER_OPTIONS.find((p) => p.value === form.providerType);
+                const link = form.providerType in API_KEY_LINKS ? API_KEY_LINKS[form.providerType] : null;
+                return opt ? (
+                  <div className="text-xs text-sub mt-1 space-y-0.5">
+                    <p>{opt.hint}{opt.free && <span className="ml-2 text-green-500 font-medium">· Tier gratuito disponible</span>}</p>
+                    {link && typeof link === "object" && (
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{link.label} ↗</a>
+                    )}
+                    {link && typeof link === "string" && <p className="text-green-500">{link}</p>}
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             <div className="space-y-2">
@@ -238,14 +275,14 @@ export default function ConnectionsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="apiKey">API Key</Label>
+              <Label htmlFor="apiKey">API Key{form.providerType === "cloudflare" ? " (opcional)" : ""}</Label>
               <Input
                 id="apiKey"
                 type="password"
                 value={form.apiKey}
                 onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                placeholder="sk-..."
-                required
+                placeholder={form.providerType === "cloudflare" ? "No requerido" : "sk-..."}
+                required={form.providerType !== "cloudflare"}
               />
             </div>
 

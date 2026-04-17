@@ -6,7 +6,7 @@ import { createAiClient } from "../../../infrastructure/ai-providers/client.fact
 import { validateProviderUrl } from "../../../infrastructure/ai-providers/ssrf-guard.js";
 import { NotFoundError, DomainError } from "../../../domain/errors/index.js";
 import { PROXY } from "../../../shared/constants.js";
-import type { ProviderType } from "../../../shared/types.js";
+import type { ProviderType, AiBinding } from "../../../shared/types.js";
 
 export interface TestConnectionResult {
   success: boolean;
@@ -20,6 +20,7 @@ export class TestConnectionUseCase {
     private readonly secrets: SecretRepository,
     private readonly crypto: CryptoPort,
     private readonly audit: AuditRepository,
+    private readonly ai?: AiBinding,
   ) {}
 
   async execute(
@@ -39,15 +40,20 @@ export class TestConnectionUseCase {
     }
 
     // 2. Resolve and validate base URL (SSRF guard)
-    const baseUrl =
-      connection.baseUrl ??
-      PROXY.KNOWN_PROVIDERS[
-        connection.providerType as keyof typeof PROXY.KNOWN_PROVIDERS
-      ];
-    if (!baseUrl) {
+    // Cloudflare AI uses the Workers AI binding — no HTTP base URL needed.
+    const isCloudflare = connection.providerType === "cloudflare";
+    const baseUrl = isCloudflare
+      ? ""
+      : (connection.baseUrl ??
+        PROXY.KNOWN_PROVIDERS[
+          connection.providerType as keyof typeof PROXY.KNOWN_PROVIDERS
+        ]);
+    if (!isCloudflare && !baseUrl) {
       throw new DomainError("NO_BASE_URL", "No base URL configured for provider");
     }
-    await validateProviderUrl(baseUrl);
+    if (!isCloudflare) {
+      await validateProviderUrl(baseUrl);
+    }
 
     // 3. Decrypt API key
     const secret = await this.secrets.findByConnectionId(connection.id);
@@ -72,7 +78,7 @@ export class TestConnectionUseCase {
     }
 
     // 5. Test connection with a minimal request
-    const client = createAiClient(connection.providerType as ProviderType);
+    const client = createAiClient(connection.providerType as ProviderType, this.ai);
     const testModels: Record<string, string> = {
       openai: "gpt-4o-mini",
       anthropic: "claude-3-5-haiku-20241022",

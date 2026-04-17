@@ -175,6 +175,10 @@ export default function AdminModelsPage() {
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic</option>
                 <option value="openrouter">OpenRouter</option>
+                <option value="gemini">🆓 Google Gemini</option>
+                <option value="groq">🆓 Groq</option>
+                <option value="cloudflare">🆓 Cloudflare AI</option>
+                <option value="custom">Custom</option>
               </select>
             </div>
 

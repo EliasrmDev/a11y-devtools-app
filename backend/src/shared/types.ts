@@ -1,4 +1,8 @@
-export type ProviderType = "openai" | "anthropic" | "openrouter" | "custom";
+export type ProviderType = "openai" | "anthropic" | "openrouter" | "gemini" | "groq" | "cloudflare" | "custom";
+
+/** Minimal interface for the Cloudflare Workers AI binding (`env.AI`) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AiBinding = { run(model: string, input: Record<string, unknown>): Promise<any> };
 
 export type UserRole = "user" | "admin";
 

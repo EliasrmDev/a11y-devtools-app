@@ -111,16 +111,17 @@ export function createApp(env: CloudflareBindings) {
   const listConnectionsUC = new ListConnectionsUseCase(providerRepo);
   const updateConnectionUC = new UpdateConnectionUseCase(providerRepo, secretRepo, crypto, auditRepo);
   const deleteConnectionUC = new DeleteConnectionUseCase(providerRepo, auditRepo);
-  const testConnectionUC = new TestConnectionUseCase(providerRepo, secretRepo, crypto, auditRepo);
+  const testConnectionUC = new TestConnectionUseCase(providerRepo, secretRepo, crypto, auditRepo, env.AI);
   const listModelsUC = new ListModelsUseCase(providerRepo);
 
-  const aiProxyUC = new AiProxyUseCase(providerRepo, secretRepo, crypto, usageRepo);
+  const aiProxyUC = new AiProxyUseCase(providerRepo, secretRepo, crypto, usageRepo, env.AI);
   const suggestAccessibilityUC = new SuggestAccessibilityUseCase(
     providerRepo,
     secretRepo,
     crypto,
     usageRepo,
     auditRepo,
+    env.AI,
   );
 
   const getProfileUC = new GetProfileUseCase(userRepo);
