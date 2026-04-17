@@ -12,6 +12,7 @@ export const envSchema = z.object({
   RESEND_API_KEY: z.string().min(1),
   LOGTAIL_SOURCE_TOKEN: z.string().optional(),
   ALLOWED_ORIGINS: z.string().default(""),
+  ALLOWED_ORIGINS_DEV: z.string().default(""),
   ENVIRONMENT: z
     .enum(["development", "staging", "production"])
     .default("production"),

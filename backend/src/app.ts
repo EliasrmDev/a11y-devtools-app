@@ -69,9 +69,9 @@ import { ManageJobsUseCase } from "./application/use-cases/admin/manage-jobs.use
 
 export function createApp(env: CloudflareBindings) {
   const config = parseEnv(env as unknown as Record<string, unknown>);
-  const allowedOrigins = config.ALLOWED_ORIGINS
-    ? config.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
-    : [];
+  const allowedOrigins = config.ENVIRONMENT === "development"
+    ? config.ALLOWED_ORIGINS_DEV.split(",").map((s) => s.trim())
+    : config.ALLOWED_ORIGINS.split(",").map((s) => s.trim());
 
   // --- Infrastructure ---
   const db = createDb(config.DATABASE_URL);
