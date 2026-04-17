@@ -2,13 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary metadata -->
+    <title>A11y DevTools — Dashboard</title>
+    <meta name="description" content="AI-powered WCAG 2.1/2.2 accessibility analysis and remediation. Scan pages, detect violations, and get instant fix suggestions." />
+    <meta name="application-name" content="A11y DevTools" />
+    <meta name="theme-color" content="#5b8dee" />
+
+    <!-- Dashboard is a private app — do not index -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Favicons -->
     <link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="shortcut icon" href="./favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="A11y DevTools" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dashboard</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="./site.webmanifest" />
+
+    <!-- Preconnect to API for faster first request -->
+    <link rel="preconnect" href="https://api.a11y.eliasrm.dev" />
+    <link rel="preconnect" href="https://clerk.a11y.eliasrm.dev" />
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,10 @@
+name = "a11y-devtools-dashboard"
+pages_build_output_dir = "dist"
+
+# Build-time env vars (VITE_*) must be set in the Cloudflare Pages project
+# dashboard under Settings → Environment variables, since Vite bakes them
+# into the bundle at build time and they cannot be injected at runtime.
+#
+# Required variables to set in Cloudflare Pages dashboard:
+#   VITE_API_URL               = https://api.a11y.eliasrm.dev
+#   VITE_CLERK_PUBLISHABLE_KEY = pk_live_...

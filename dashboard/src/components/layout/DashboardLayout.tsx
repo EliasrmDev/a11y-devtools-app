@@ -1,6 +1,7 @@
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router";
 import { useAuth } from "@/lib/auth";
 import { UserButton } from "@clerk/clerk-react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Link2,
@@ -12,6 +13,8 @@ import {
   Cpu,
   BarChart3,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -51,6 +54,13 @@ function NavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
 export default function DashboardLayout() {
   const { profile, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close sidebar on navigation
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -59,11 +69,24 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Mobile overlay backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface-2">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r border-border bg-surface-2 transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${
+          mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+        }`}
+      >
         {/* Logo */}
         <div className="flex items-center gap-2 border-b border-border px-5 py-4">
-          <svg className="h-6 w-6" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <svg className="h-6 w-6 shrink-0" viewBox="0 0 28 28" fill="none" aria-hidden="true">
             <circle cx="12" cy="12" r="8.5" stroke="#5b8dee" strokeWidth="2" />
             <circle cx="12" cy="9.2" r="1.8" fill="#5b8dee" />
             <path d="M10.2 12.5h3.6M12 12.5v4.5" stroke="#5b8dee" strokeWidth="1.9" strokeLinecap="round" />
@@ -72,6 +95,14 @@ export default function DashboardLayout() {
           <span className="text-sm font-bold text-text">
             A11y<span className="text-sub">/</span>DevTools
           </span>
+          {/* Close button — mobile only */}
+          <button
+            className="ml-auto rounded p-1 text-sub hover:text-text md:hidden"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -120,12 +151,38 @@ export default function DashboardLayout() {
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-5xl px-8 py-8">
-          <Outlet />
-        </div>
-      </main>
+      {/* Content area */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <header className="flex shrink-0 items-center gap-3 border-b border-border bg-surface-2 px-4 py-3 md:hidden">
+          <button
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation menu"
+            className="rounded p-1 text-sub hover:text-text"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <svg className="h-5 w-5 shrink-0" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" stroke="#5b8dee" strokeWidth="2" />
+            <circle cx="12" cy="9.2" r="1.8" fill="#5b8dee" />
+            <path d="M10.2 12.5h3.6M12 12.5v4.5" stroke="#5b8dee" strokeWidth="1.9" strokeLinecap="round" />
+            <line x1="18.5" y1="18.5" x2="25" y2="25" stroke="#5b8dee" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+          <span className="text-sm font-bold text-text">
+            A11y<span className="text-sub">/</span>DevTools
+          </span>
+          <div className="ml-auto">
+            <UserButton appearance={{ elements: { avatarBox: "h-8 w-8" } }} />
+          </div>
+        </header>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

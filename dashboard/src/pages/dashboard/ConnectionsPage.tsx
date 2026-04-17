@@ -31,22 +31,20 @@ import {
 const PROVIDER_OPTIONS = [
   { value: "openai",     label: "OpenAI",               free: false, hint: "GPT-4o, o1, etc." },
   { value: "anthropic",  label: "Anthropic",             free: false, hint: "Claude 3.x / Sonnet" },
-  { value: "openrouter", label: "OpenRouter",            free: true,  hint: "M\u00e1s flexible — 200+ modelos, algunos gratuitos" },
-  { value: "gemini",     label: "Google Gemini",         free: true,  hint: "Mejor opci\u00f3n gratuita en general" },
-  { value: "groq",       label: "Groq",                  free: true,  hint: "Mejor rendimiento y velocidad" },
-  { value: "cloudflare", label: "Cloudflare AI",         free: true,  hint: "Mejor integraci\u00f3n con este stack \u2014 sin API key" },
-  { value: "custom",     label: "Custom / Self-hosted",  free: false, hint: "Cualquier endpoint compatible con OpenAI" },
+  { value: "openrouter", label: "OpenRouter",            free: true,  hint: "Most flexible — 200+ models, some free" },
+  { value: "gemini",     label: "Google Gemini",         free: true,  hint: "Best free option overall" },
+  { value: "groq",       label: "Groq",                  free: true,  hint: "Best performance and speed" },
+  { value: "custom",     label: "Custom / Self-hosted",  free: false, hint: "Any OpenAI-compatible endpoint" },
 ] as const;
 
 type ProviderValue = typeof PROVIDER_OPTIONS[number]["value"];
 
-const FREE_PROVIDERS = new Set<string>(["openrouter", "gemini", "groq", "cloudflare"]);
+const FREE_PROVIDERS = new Set<string>(["openrouter", "gemini", "groq"]);
 
-const API_KEY_LINKS: Record<string, { label: string; url: string } | string> = {
-  gemini:     { label: "Obtener API key gratuita", url: "https://aistudio.google.com/app/apikey" },
-  groq:       { label: "Obtener API key gratuita", url: "https://console.groq.com/keys" },
-  openrouter: { label: "Obtener API key", url: "https://openrouter.ai/keys" },
-  cloudflare: "Incluido gratis con tu plan de Cloudflare Workers — no se necesita API key",
+const API_KEY_LINKS: Record<string, { label: string; url: string }> = {
+  gemini:     { label: "Get free API key", url: "https://aistudio.google.com/app/apikey" },
+  groq:       { label: "Get free API key", url: "https://console.groq.com/keys" },
+  openrouter: { label: "Get API key", url: "https://openrouter.ai/keys" },
 };
 
 export default function ConnectionsPage() {
@@ -244,7 +242,7 @@ export default function ConnectionsPage() {
               >
                 {PROVIDER_OPTIONS.map((p) => (
                   <option key={p.value} value={p.value}>
-                    {p.free ? "\uD83C\uDD13 " : ""}{p.label}
+                    {p.free ? "	\uD83C\uDD93 " : ""}{p.label}
                   </option>
                 ))}
               </select>
@@ -253,11 +251,10 @@ export default function ConnectionsPage() {
                 const link = form.providerType in API_KEY_LINKS ? API_KEY_LINKS[form.providerType] : null;
                 return opt ? (
                   <div className="text-xs text-sub mt-1 space-y-0.5">
-                    <p>{opt.hint}{opt.free && <span className="ml-2 text-green-500 font-medium">· Tier gratuito disponible</span>}</p>
-                    {link && typeof link === "object" && (
+                    <p>{opt.hint}{opt.free && <span className="ml-2 text-green-500 font-medium">· Free tier available</span>}</p>
+                    {link && (
                       <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{link.label} ↗</a>
                     )}
-                    {link && typeof link === "string" && <p className="text-green-500">{link}</p>}
                   </div>
                 ) : null;
               })()}
@@ -275,14 +272,14 @@ export default function ConnectionsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="apiKey">API Key{form.providerType === "cloudflare" ? " (opcional)" : ""}</Label>
+              <Label htmlFor="apiKey">API Key</Label>
               <Input
                 id="apiKey"
                 type="password"
                 value={form.apiKey}
                 onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                placeholder={form.providerType === "cloudflare" ? "No requerido" : "sk-..."}
-                required={form.providerType !== "cloudflare"}
+                placeholder="sk-..."
+                required
               />
             </div>
 
