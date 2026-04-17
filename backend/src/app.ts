@@ -9,6 +9,17 @@ import { loggingMiddleware } from "./adapters/middleware/logging.middleware.js";
 import { errorMiddleware } from "./adapters/middleware/error.middleware.js";
 import { authMiddleware } from "./adapters/middleware/auth.middleware.js";
 
+// Domain errors
+import {
+  DomainError,
+  NotFoundError,
+  UnauthorizedError,
+  ForbiddenError,
+  ConflictError,
+  ValidationError,
+  RateLimitError,
+} from "./domain/errors/index.js";
+
 // Routes
 import { createHealthRoutes } from "./adapters/routes/health.routes.js";
 import { createAuthRoutes } from "./adapters/routes/auth.routes.js";
@@ -134,6 +145,31 @@ export function createApp(env: CloudflareBindings) {
   app.use("*", corsMiddleware(allowedOrigins));
   app.use("*", errorMiddleware);
   app.use("*", loggingMiddleware);
+
+  // Hono-level error handler (catches errors that escape middleware try/catch)
+  app.onError((err, c) => {
+    if (err instanceof DomainError) {
+      const statusMap: Record<string, number> = {
+        [NotFoundError.name]: 404,
+        [UnauthorizedError.name]: 401,
+        [ForbiddenError.name]: 403,
+        [ConflictError.name]: 409,
+        [ValidationError.name]: 422,
+        [RateLimitError.name]: 429,
+      };
+      const status = statusMap[err.constructor.name] ?? 400;
+      return c.json({ error: err.message, code: err.code }, status as any);
+    }
+    console.error(
+      JSON.stringify({
+        level: "error",
+        msg: "Unhandled error",
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      }),
+    );
+    return c.json({ error: "Internal server error" }, 500);
+  });
 
   // Public routes
   app.route("/health", createHealthRoutes());
