@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>a11y DevTools — Sign in</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #070a10;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 1.5rem;
+      padding: 2rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #7c86ff;
+      letter-spacing: -0.02em;
+    }
+    .status {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      text-align: center;
+    }
+    .status.error { color: #f87171; }
+    .status.success { color: #4ade80; }
+    #clerk-signin { width: 100%; max-width: 400px; }
+  </style>
+</head>
+<body>
+  <div class="logo">a11y DevTools</div>
+  <p id="status-msg" class="status">Loading sign-in…</p>
+  <div id="clerk-signin"></div>
+
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_live_Y2xlcmsuYTExeS5lbGlhc3JtLmRldiQ"
+    src="https://clerk.api.a11y.eliasrm.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
+  </script>
+  <script src="/auth-callback.js"></script>
+</body>
+</html>
