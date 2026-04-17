@@ -10,4 +10,5 @@ pages_build_output_dir = "dist"
 # For Cloudflare Pages CI:    set in Dashboard → Settings → Environment variables.
 [vars]
 VITE_API_URL = "https://api.a11y.eliasrm.dev"
+VITE_CLERK_PUBLISHABLE_KEY="pk_live_Y2xlcmsuYXBpLmExMXkuZWxpYXNybS5kZXYk"
 # VITE_CLERK_PUBLISHABLE_KEY must be set via the CF Pages dashboard (secret)
