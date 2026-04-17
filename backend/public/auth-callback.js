@@ -10,11 +10,6 @@
 (function () {
   'use strict';
 
-  // Both prod and dev extension IDs. The message is sent to whichever is installed.
-  var EXTENSION_IDS = [
-    'idikmoknbihljafgbjbbngnfogbnbjkb', // production
-  ];
-
   var statusEl = document.getElementById('status-msg');
 
   function setStatus(msg, cls) {
@@ -26,35 +21,34 @@
     setStatus('Connecting to extension…');
 
     var sent = false;
+    var timeout;
 
-    EXTENSION_IDS.forEach(function (id) {
-      try {
-        chrome.runtime.sendMessage(
-          id,
-          { type: 'LOGIN_BACKEND', token: token },
-          function (response) {
-            if (chrome.runtime.lastError) {
-              return; // Extension not installed with this ID — try next.
-            }
-            if (!sent) {
-              sent = true;
-              if (response && response.ok) {
-                setStatus('Signed in successfully. You may close this tab.', 'success');
-                setTimeout(function () { window.close(); }, 1500);
-              } else {
-                var msg = (response && response.error) ? response.error : 'Unknown error';
-                setStatus('Extension error: ' + msg, 'error');
-              }
-            }
-          }
-        );
-      } catch (e) {
-        setStatus('Cannot communicate with extension. Make sure it is installed.', 'error');
+    // Listen for the response from the auth-bridge content script
+    function onBridgeResponse(event) {
+      if (event.source !== window) return;
+      if (!event.data || event.data.type !== 'A11Y_LOGIN_RESPONSE') return;
+
+      window.removeEventListener('message', onBridgeResponse);
+      clearTimeout(timeout);
+      sent = true;
+
+      if (event.data.ok) {
+        setStatus('Signed in successfully. You may close this tab.', 'success');
+        setTimeout(function () { window.close(); }, 1500);
+      } else {
+        var msg = event.data.error || 'Unknown error';
+        setStatus('Extension error: ' + msg, 'error');
       }
-    });
+    }
 
-    setTimeout(function () {
+    window.addEventListener('message', onBridgeResponse);
+
+    // Send token to the auth-bridge content script (which forwards to background.js)
+    window.postMessage({ type: 'A11Y_LOGIN_REQUEST', token: token }, '*');
+
+    timeout = setTimeout(function () {
       if (!sent) {
+        window.removeEventListener('message', onBridgeResponse);
         setStatus('Extension not found. Make sure a11y DevTools is installed and enabled.', 'error');
       }
     }, 3000);

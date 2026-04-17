@@ -9,7 +9,10 @@ export function createAuthAdapter(env: Env): AuthPort {
       if (!env.CLERK_SECRET_KEY) {
         throw new Error("CLERK_SECRET_KEY is required when AUTH_PROVIDER=clerk");
       }
-      return new ClerkAuthAdapter(env.JWT_SECRET, env.CLERK_SECRET_KEY);
+      if (!env.CLERK_PUBLISHABLE_KEY) {
+        throw new Error("CLERK_PUBLISHABLE_KEY is required when AUTH_PROVIDER=clerk");
+      }
+      return new ClerkAuthAdapter(env.JWT_SECRET, env.CLERK_SECRET_KEY, env.CLERK_PUBLISHABLE_KEY);
 
     case "better-auth":
       if (!env.BETTER_AUTH_SECRET) {

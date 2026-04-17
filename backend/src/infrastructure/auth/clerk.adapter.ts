@@ -1,42 +1,57 @@
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, jwtVerify, createRemoteJWKSet } from "jose";
 import { randomUUID } from "node:crypto";
 import type { AuthPort, ExternalAuthResult } from "../../domain/ports/auth.port.js";
 import type { TokenPair, JwtPayload } from "../../shared/types.js";
 import { TOKEN_TTL } from "../../shared/constants.js";
 import { UnauthorizedError } from "../../domain/errors/index.js";
 
-/** Clerk adapter — verifies Clerk session tokens and issues internal JWTs */
+/** Clerk adapter — verifies Clerk session JWTs (from getToken()) and issues internal JWTs */
 export class ClerkAuthAdapter implements AuthPort {
   private readonly secret: Uint8Array;
   private readonly clerkSecretKey: string;
   private readonly audience: string;
+  private readonly jwks: ReturnType<typeof createRemoteJWKSet>;
 
-  constructor(jwtSecret: string, clerkSecretKey: string, audience = "a11y-devtools-ext") {
+  constructor(
+    jwtSecret: string,
+    clerkSecretKey: string,
+    clerkPublishableKey: string,
+    audience = "a11y-devtools-ext",
+  ) {
     this.secret = new TextEncoder().encode(jwtSecret);
     this.clerkSecretKey = clerkSecretKey;
     this.audience = audience;
+
+    // Derive JWKS URL from publishable key.
+    // Format: pk_live_<base64(frontendApiHost + "$")>
+    // e.g. pk_live_Y2xlcmsuYXBpLmExMXkuZWxpYXNybS5kZXYk → clerk.api.a11y.eliasrm.dev
+    const b64 = clerkPublishableKey.replace(/^pk_(live|test)_/, "");
+    const frontendApiHost = atob(b64).replace(/\$+$/, "");
+    this.jwks = createRemoteJWKSet(
+      new URL(`https://${frontendApiHost}/.well-known/jwks.json`),
+    );
   }
 
   async verifyExternalToken(token: string): Promise<ExternalAuthResult> {
-    // Call Clerk Backend API to verify session token
-    const response = await fetch("https://api.clerk.com/v1/sessions/verify", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.clerkSecretKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ token }),
-    });
-
-    if (!response.ok) {
+    // Verify the JWT using Clerk's JWKS endpoint.
+    // session.getToken() on the frontend returns a short-lived Clerk-signed JWT;
+    // the correct backend verification path is JWKS, not /v1/sessions/verify.
+    let jwtPayload: Record<string, unknown>;
+    try {
+      const { payload } = await jwtVerify(token, this.jwks);
+      jwtPayload = payload as Record<string, unknown>;
+    } catch {
       throw new UnauthorizedError("Invalid Clerk session token");
     }
 
-    const session = (await response.json()) as ClerkSessionResponse;
+    const userId = jwtPayload["sub"] as string | undefined;
+    if (!userId) {
+      throw new UnauthorizedError("Invalid Clerk session token");
+    }
 
-    // Fetch user details
+    // Fetch user details from Clerk Backend API
     const userResponse = await fetch(
-      `https://api.clerk.com/v1/users/${session.user_id}`,
+      `https://api.clerk.com/v1/users/${userId}`,
       {
         headers: { Authorization: `Bearer ${this.clerkSecretKey}` },
       },
@@ -143,11 +158,6 @@ export class ClerkAuthAdapter implements AuthPort {
       throw new UnauthorizedError("Invalid or expired refresh token");
     }
   }
-}
-
-interface ClerkSessionResponse {
-  user_id: string;
-  status: string;
 }
 
 interface ClerkUserResponse {
