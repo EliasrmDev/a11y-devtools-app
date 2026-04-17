@@ -13,7 +13,6 @@
   // Both prod and dev extension IDs. The message is sent to whichever is installed.
   var EXTENSION_IDS = [
     'idikmoknbihljafgbjbbngnfogbnbjkb', // production
-    'lbdlhchbbefkpakkeabdakjohchfailb', // development / unpacked
   ];
 
   var statusEl = document.getElementById('status-msg');
