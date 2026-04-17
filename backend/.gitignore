@@ -1,6 +1,28 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+
+# Cloudflare / Wrangler
 .wrangler/
+
+# Local secrets — never commit
 .dev.vars
-*.log
 .env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
