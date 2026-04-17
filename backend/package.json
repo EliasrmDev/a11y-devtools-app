@@ -1,0 +1,41 @@
+{
+  "name": "a11y-devtools-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/infrastructure/db/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.7.6",
+    "@neondatabase/serverless": "^0.10.4",
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.6.0",
+    "jose": "^6.2.2",
+    "resend": "^4.1.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241205.0",
+    "@types/dotenv": "^6.1.1",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.28.1",
+    "drizzle-zod": "^0.8.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "wrangler": "^3.95.0"
+  }
+}
