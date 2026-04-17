@@ -15,7 +15,7 @@ directory = "./public"
 [vars]
 AUTH_PROVIDER = "clerk"
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://a11y.eliasrm.dev,https://api.a11y.eliasrm.dev"
+ALLOWED_ORIGINS = "https://a11y.eliasrm.dev,https://api.a11y.eliasrm.dev,http://localhost:5173"
 
 # ── Cloudflare rate-limit bindings ────────────────────────────────────────────
 # Replace namespace_id values with IDs from the Cloudflare dashboard.
