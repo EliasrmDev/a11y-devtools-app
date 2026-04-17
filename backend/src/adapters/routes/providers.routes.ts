@@ -87,7 +87,7 @@ export function createProviderRoutes(deps: {
         userAgent: c.req.header("User-Agent"),
       },
     );
-    return c.json(result, result.success ? 200 : 422);
+    return c.json(result, 200);
   });
 
   // GET /providers/models

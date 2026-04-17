@@ -73,12 +73,19 @@ export class TestConnectionUseCase {
 
     // 5. Test connection with a minimal request
     const client = createAiClient(connection.providerType as ProviderType);
+    const testModels: Record<string, string> = {
+      openai: "gpt-4o-mini",
+      anthropic: "claude-3-5-haiku-20241022",
+      openrouter: "openai/gpt-4o-mini",
+      custom: "gpt-4o-mini",
+    };
+    const testModel = testModels[connection.providerType] ?? "gpt-4o-mini";
 
     try {
       await client.complete({
         baseUrl,
         apiKey,
-        model: "gpt-4o-mini", // Use cheapest model for test
+        model: testModel,
         messages: [{ role: "user", content: "Hi" }],
         maxTokens: 1,
         customHeaders,
