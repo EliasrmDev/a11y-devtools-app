@@ -1,6 +1,6 @@
 {
-  "name": "A11y DevTools",
-  "short_name": "A11y",
+  "name": "A11y DevTools Dashboard",
+  "short_name": "A11y Dashboard",
   "description": "AI-powered WCAG accessibility analysis and remediation",
   "start_url": "/dashboard",
   "display": "standalone",
