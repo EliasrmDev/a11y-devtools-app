@@ -29,6 +29,7 @@ import { createUserRoutes } from "./adapters/routes/users.routes.js";
 import { createAdminRoutes } from "./adapters/routes/admin.routes.js";
 import { createAccessibilityRoutes } from "./adapters/routes/accessibility.routes.js";
 import { createMetricsRoutes } from "./adapters/routes/metrics.routes.js";
+import { createProviderModelsRoutes } from "./adapters/routes/provider-models.routes.js";
 
 // Infrastructure
 import { createDb } from "./infrastructure/db/client.js";
@@ -45,6 +46,9 @@ import { AuditRepositoryImpl } from "./infrastructure/db/repositories/audit.repo
 import { UsageRepositoryImpl } from "./infrastructure/db/repositories/usage.repository.impl.js";
 import { RevokedTokenRepositoryImpl } from "./infrastructure/db/repositories/revoked-token.repository.impl.js";
 import { DeletionRequestRepositoryImpl } from "./infrastructure/db/repositories/deletion-request.repository.impl.js";
+import { ProviderModelsCacheRepositoryImpl } from "./infrastructure/db/repositories/provider-models-cache.repository.impl.js";
+import { MemoryModelsCache } from "./infrastructure/ai-providers/models/memory-cache.js";
+import { MODEL_CACHE } from "./shared/constants.js";
 
 // Use cases — Auth
 import { LoginUseCase } from "./application/use-cases/auth/login.use-case.js";
@@ -59,6 +63,8 @@ import { UpdateConnectionUseCase } from "./application/use-cases/providers/updat
 import { DeleteConnectionUseCase } from "./application/use-cases/providers/delete-connection.use-case.js";
 import { TestConnectionUseCase } from "./application/use-cases/providers/test-connection.use-case.js";
 import { ListModelsUseCase } from "./application/use-cases/providers/list-models.use-case.js";
+import { FetchProviderModelsUseCase } from "./application/use-cases/providers/fetch-provider-models.use-case.js";
+import { FetchAllProviderModelsUseCase } from "./application/use-cases/providers/fetch-all-provider-models.use-case.js";
 
 // Use cases — Proxy
 import { AiProxyUseCase } from "./application/use-cases/proxy/ai-proxy.use-case.js";
@@ -100,10 +106,12 @@ export function createApp(env: CloudflareBindings) {
   const usageRepo = new UsageRepositoryImpl(db);
   const revokedTokenRepo = new RevokedTokenRepositoryImpl(db);
   const deletionRequestRepo = new DeletionRequestRepositoryImpl(db);
+  const modelsCacheRepo = new ProviderModelsCacheRepositoryImpl(db);
+  const memoryModelsCache = new MemoryModelsCache(MODEL_CACHE.MEMORY_TTL_MS);
 
   // --- Use Cases ---
   const verifyTokenUC = new VerifyTokenUseCase(authAdapter, revokedTokenRepo);
-  const loginUC = new LoginUseCase(authAdapter, userRepo, auditRepo);
+  const loginUC = new LoginUseCase(authAdapter, userRepo, auditRepo, db);
   const refreshTokenUC = new RefreshTokenUseCase(authAdapter, userRepo, revokedTokenRepo);
   const logoutUC = new LogoutUseCase(revokedTokenRepo, auditRepo);
 
@@ -113,6 +121,8 @@ export function createApp(env: CloudflareBindings) {
   const deleteConnectionUC = new DeleteConnectionUseCase(providerRepo, auditRepo);
   const testConnectionUC = new TestConnectionUseCase(providerRepo, secretRepo, crypto, auditRepo, env.AI);
   const listModelsUC = new ListModelsUseCase(providerRepo);
+  const fetchProviderModelsUC = new FetchProviderModelsUseCase(providerRepo, secretRepo, crypto, modelsCacheRepo, memoryModelsCache);
+  const fetchAllProviderModelsUC = new FetchAllProviderModelsUseCase(providerRepo, secretRepo, crypto, modelsCacheRepo, memoryModelsCache);
 
   const aiProxyUC = new AiProxyUseCase(providerRepo, secretRepo, crypto, usageRepo, env.AI);
   const suggestAccessibilityUC = new SuggestAccessibilityUseCase(
@@ -126,7 +136,7 @@ export function createApp(env: CloudflareBindings) {
 
   const getProfileUC = new GetProfileUseCase(userRepo);
   const updateProfileUC = new UpdateProfileUseCase(userRepo, auditRepo);
-  const requestDeletionUC = new RequestDeletionUseCase(userRepo, deletionRequestRepo, auditRepo, emailAdapter);
+  const requestDeletionUC = new RequestDeletionUseCase(userRepo, deletionRequestRepo, auditRepo, emailAdapter, config.DELETION_GRACE_DAYS);
   const cancelDeletionUC = new CancelDeletionUseCase(userRepo, deletionRequestRepo, auditRepo);
   const exportDataUC = new ExportDataUseCase(userRepo, providerRepo, usageRepo, auditRepo);
 
@@ -200,6 +210,14 @@ export function createApp(env: CloudflareBindings) {
       remove: deleteConnectionUC,
       testConnection: testConnectionUC,
       listModels: listModelsUC,
+    }),
+  );
+
+  protectedApp.route(
+    "/providers",
+    createProviderModelsRoutes({
+      fetchModels: fetchProviderModelsUC,
+      fetchAllModels: fetchAllProviderModelsUC,
     }),
   );
 

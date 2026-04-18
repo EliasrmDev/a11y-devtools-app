@@ -15,6 +15,8 @@ import {
   LogOut,
   Menu,
   X,
+  Trash2,
+  BarChart2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +32,8 @@ const adminNav = [
   { to: "/admin/models", icon: Cpu, label: "Models" },
   { to: "/admin/audit", icon: ScrollText, label: "Audit Log" },
   { to: "/admin/jobs", icon: Activity, label: "Jobs" },
+  { to: "/admin/deletions", icon: Trash2, label: "Deletions" },
+  { to: "/admin/metrics", icon: BarChart2, label: "Metrics" },
 ];
 
 function NavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
@@ -64,7 +68,7 @@ export default function DashboardLayout() {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/");
+    navigate("/login"); // Navigate to login instead of root
   };
 
   return (

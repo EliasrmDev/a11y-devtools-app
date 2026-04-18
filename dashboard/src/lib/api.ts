@@ -388,3 +388,57 @@ export interface AdminStats {
 export function adminGetStats() {
   return apiFetch<AdminStats>("/api/v1/admin/stats");
 }
+
+// ─── Deletion Requests ────────────────────────────────
+export interface DeletionRequest {
+  id: string;
+  userId: string;
+  userEmail: string | null;
+  userDisplayName: string | null;
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
+  requestedAt: string;
+  scheduledFor: string;
+  completedAt: string | null;
+  processedTables: Record<string, boolean> | null;
+  errorDetails: string | null;
+}
+
+export function adminListDeletionRequests(params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+}) {
+  return apiFetch<PaginatedResult<DeletionRequest>>("/api/v1/admin/deletion-requests", { params });
+}
+
+export function adminExecuteDeletion(id: string) {
+  return apiFetch<{ ok: boolean; message: string }>(
+    `/api/v1/admin/deletion-requests/${encodeURIComponent(id)}/execute`,
+    { method: "POST" },
+  );
+}
+
+export function adminCancelDeletion(id: string) {
+  return apiFetch<{ ok: boolean }>(
+    `/api/v1/admin/deletion-requests/${encodeURIComponent(id)}/cancel`,
+    { method: "DELETE" },
+  );
+}
+
+// ─── Metrics ──────────────────────────────────────────────────────────────────
+
+export async function adminFetchMetrics(format: "json" | "prometheus"): Promise<string> {
+  const url = `${API_BASE}/api/v1/metrics${format === "prometheus" ? "?format=prometheus" : ""}`;
+  const tokens = getTokens();
+  const headers: Record<string, string> = {};
+  if (tokens?.accessToken) headers["Authorization"] = `Bearer ${tokens.accessToken}`;
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const text = await res.text();
+    let message: string;
+    try { message = (JSON.parse(text) as { error?: string }).error ?? text; } catch { message = text; }
+    throw new ApiError(res.status, message);
+  }
+  return res.text();
+}

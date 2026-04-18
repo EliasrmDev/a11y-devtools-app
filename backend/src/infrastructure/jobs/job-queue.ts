@@ -10,6 +10,7 @@ export const JOB_NAMES = [
   "CLEANUP_SOFT_DELETED",
   "PROCESS_DELETION_REQUESTS",
   "DETECT_INACTIVE_ACCOUNTS",
+  "CLEANUP_EXPIRED_MODEL_CACHE",
 ] as const;
 
 export type JobName = (typeof JOB_NAMES)[number];

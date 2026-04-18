@@ -36,11 +36,20 @@ export const listJobsQuerySchema = z.object({
     .optional(),
 });
 
+export const listDeletionRequestsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  status: z
+    .enum(["pending", "processing", "completed", "failed", "cancelled"])
+    .optional(),
+});
+
 export const runJobSchema = z.object({
   name: z.enum(JOB_NAMES),
 });
 
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+export type ListDeletionRequestsQuery = z.infer<typeof listDeletionRequestsQuerySchema>;
 export type AuditLogQuery = z.infer<typeof auditLogQuerySchema>;
 export type ManageModelInput = z.infer<typeof manageModelInputSchema>;
 export type BlockUserInput = z.infer<typeof blockUserSchema>;

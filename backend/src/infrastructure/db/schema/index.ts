@@ -4,6 +4,7 @@ export { sessions } from "./sessions";
 export { aiProviderConnections } from "./ai-provider-connections";
 export { encryptedSecrets } from "./encrypted-secrets";
 export { providerModels } from "./provider-models";
+export { providerModelsCache } from "./provider-models-cache";
 export { auditEvents } from "./audit-events";
 export { usageEvents } from "./usage-events";
 export { notificationPreferences } from "./notification-preferences";

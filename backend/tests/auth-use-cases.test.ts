@@ -7,6 +7,7 @@ import { LoginUseCase } from "../src/application/use-cases/auth/login.use-case.j
 import type { AuthPort, ExternalAuthResult } from "../src/domain/ports/auth.port.js";
 import type { UserRepository } from "../src/domain/ports/user.repository.js";
 import type { AuditRepository } from "../src/domain/ports/audit.repository.js";
+import type { Database } from "../src/infrastructure/db/client.js";
 import type { JwtPayload, TokenPair } from "../src/shared/types.js";
 import { UnauthorizedError } from "../src/domain/errors/index.js";
 
@@ -102,21 +103,37 @@ function mockTokenChecker(overrides: Partial<RevokedTokenChecker> = {}): Revoked
   };
 }
 
+function mockDatabase(): Database {
+  return {
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        onConflictDoUpdate: vi.fn().mockResolvedValue(undefined)
+      }))
+    })),
+    update: vi.fn(),
+    delete: vi.fn(),
+    select: vi.fn(),
+    execute: vi.fn(),
+  } as any;
+}
+
 // --- Tests ---
 
 describe("LoginUseCase", () => {
   let auth: AuthPort;
   let users: UserRepository;
   let audit: AuditRepository;
+  let db: Database;
 
   beforeEach(() => {
     auth = mockAuthPort();
     users = mockUserRepo();
     audit = mockAuditRepo();
+    db = mockDatabase();
   });
 
   it("should create a new user on first login", async () => {
-    const uc = new LoginUseCase(auth, users, audit);
+    const uc = new LoginUseCase(auth, users, audit, db);
     const result = await uc.execute("external-token", { ipAddress: "1.2.3.4" });
 
     expect(auth.verifyExternalToken).toHaveBeenCalledWith("external-token");
@@ -142,7 +159,7 @@ describe("LoginUseCase", () => {
       }),
     });
 
-    const uc = new LoginUseCase(auth, users, audit);
+    const uc = new LoginUseCase(auth, users, audit, db);
     const result = await uc.execute("external-token", {});
 
     expect(users.create).not.toHaveBeenCalled();
@@ -150,7 +167,7 @@ describe("LoginUseCase", () => {
   });
 
   it("should audit the login event", async () => {
-    const uc = new LoginUseCase(auth, users, audit);
+    const uc = new LoginUseCase(auth, users, audit, db);
     await uc.execute("token", { ipAddress: "10.0.0.1", userAgent: "test-agent" });
 
     expect(audit.create).toHaveBeenCalledWith(
@@ -168,7 +185,7 @@ describe("LoginUseCase", () => {
         new UnauthorizedError("Invalid token"),
       ),
     });
-    const uc = new LoginUseCase(auth, users, audit);
+    const uc = new LoginUseCase(auth, users, audit, db);
 
     await expect(uc.execute("bad-token", {})).rejects.toThrow(
       UnauthorizedError,

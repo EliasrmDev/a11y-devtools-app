@@ -18,7 +18,9 @@ export async function handleScheduled(
   const notifications = new NotificationService(db, emailAdapter);
 
   try {
-    await processScheduledJobs(db, notifications, logger);
+    await processScheduledJobs(db, notifications, logger, {
+      neonAuthBaseUrl: config.NEON_AUTH_BASE_URL,
+    });
   } catch (err) {
     logger.error("Scheduled job failed", {
       error: err instanceof Error ? err.message : String(err),

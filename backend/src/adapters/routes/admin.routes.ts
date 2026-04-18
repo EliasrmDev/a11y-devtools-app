@@ -8,6 +8,7 @@ import {
   blockUserSchema,
   listJobsQuerySchema,
   runJobSchema,
+  listDeletionRequestsQuerySchema,
 } from "../../application/dto/admin.dto.js";
 import { adminMiddleware } from "../middleware/admin.middleware.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.middleware.js";
@@ -230,6 +231,86 @@ export function createAdminRoutes(deps: {
       return c.json({ ok: true, job: name }, 200);
     },
   );
+
+  // ─── Deletion requests ─────────────────────────────────────────────────────
+
+  // GET /admin/deletion-requests
+  app.get(
+    "/deletion-requests",
+    zValidator("query", listDeletionRequestsQuerySchema),
+    async (c) => {
+      const { page, limit, status } = c.req.valid("query");
+      const result = await deps.deletionRequestRepo.listAll({ page, limit, status });
+
+      // Enrich with user email
+      const enriched = await Promise.all(
+        result.data.map(async (dr) => {
+          const user = await deps.userRepo.findById(dr.userId);
+          return {
+            ...dr,
+            userEmail: user?.email ?? null,
+            userDisplayName: user?.displayName ?? null,
+          };
+        }),
+      );
+
+      return c.json({ data: enriched, total: result.total, page, limit }, 200);
+    },
+  );
+
+  // POST /admin/deletion-requests/:id/execute
+  // Immediately reschedules and executes the deletion by setting scheduledFor = now.
+  app.post("/deletion-requests/:id/execute", async (c) => {
+    const id = c.req.param("id");
+    const request = await deps.deletionRequestRepo.findById(id);
+    if (!request) return c.json({ error: "Deletion request not found" }, 404);
+
+    if (request.status === "completed") {
+      return c.json({ error: "Deletion already completed" }, 409);
+    }
+
+    // Mark as pending and set scheduledFor = now so the next job tick picks it up
+    await deps.deletionRequestRepo.forceScheduleNow(id);
+
+    await deps.auditRepo.create({
+      userId: c.get("userId"),
+      action: "admin.deletion_request.force_execute",
+      resourceType: "user",
+      resourceId: request.userId,
+      ipAddress: c.req.header("CF-Connecting-IP"),
+      userAgent: c.req.header("User-Agent"),
+      metadata: { deletionRequestId: id },
+    });
+
+    return c.json({ ok: true, message: "Deletion scheduled for immediate execution" }, 200);
+  });
+
+  // DELETE /admin/deletion-requests/:id/cancel
+  app.delete("/deletion-requests/:id/cancel", async (c) => {
+    const id = c.req.param("id");
+    const request = await deps.deletionRequestRepo.findById(id);
+    if (!request) return c.json({ error: "Deletion request not found" }, 404);
+
+    if (request.status === "completed") {
+      return c.json({ error: "Cannot cancel a completed deletion" }, 409);
+    }
+
+    await deps.deletionRequestRepo.cancel(id);
+    // Restore user soft-delete if still present (best-effort)
+    await deps.userRepo.restore(request.userId).catch(() => {});
+
+    await deps.auditRepo.create({
+      userId: c.get("userId"),
+      action: "admin.deletion_request.cancelled",
+      resourceType: "user",
+      resourceId: request.userId,
+      ipAddress: c.req.header("CF-Connecting-IP"),
+      userAgent: c.req.header("User-Agent"),
+      metadata: { deletionRequestId: id },
+    });
+
+    return c.json({ ok: true }, 200);
+  });
 
   // ─── Stats ─────────────────────────────────────────────────────────────────
 

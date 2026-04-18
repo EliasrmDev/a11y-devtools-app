@@ -8,28 +8,35 @@ import { notificationPreferences } from "../../db/schema/notification-preference
 import { sessions } from "../../db/schema/sessions.js";
 import { identities } from "../../db/schema/identities.js";
 import { aiProviderConnections } from "../../db/schema/ai-provider-connections.js";
+import { encryptedSecrets } from "../../db/schema/encrypted-secrets.js";
 import { revokedTokens } from "../../db/schema/revoked-tokens.js";
 import { users } from "../../db/schema/users.js";
-import { sql, eq, and, lte } from "drizzle-orm";
+import { sql, eq, and, lte, inArray } from "drizzle-orm";
 
 /**
  * Processes pending deletion requests that have passed their grace period.
  * Deletes data table-by-table, tracking progress in processed_tables JSONB.
+ *
+ * Also retries requests stuck in "processing" (crashed) or "failed" status.
  */
 export async function processDeletionRequests(
   db: Database,
   logger: Logger,
   notifications?: NotificationService,
+  neonAuthBaseUrl?: string,
 ): Promise<number> {
   const now = new Date();
 
-  // Find pending deletions past their scheduled date
+  // Find deletions past their scheduled date that need processing:
+  // - "pending": normal flow
+  // - "processing": crashed mid-way, needs retry
+  // - "failed": previous attempt failed, retry
   const pendingDeletions = await db
     .select()
     .from(deletionRequests)
     .where(
       and(
-        eq(deletionRequests.status, "pending"),
+        inArray(deletionRequests.status, ["pending", "processing", "failed"]),
         lte(deletionRequests.scheduledFor, now),
       ),
     )
@@ -48,7 +55,7 @@ export async function processDeletionRequests(
       const tables: Record<string, boolean> = deletion.processedTables ?? {};
       const userId = deletion.userId;
 
-      // Delete in dependency order (children first)
+      // Delete in dependency order (children first, user last)
       const steps: Array<{ name: string; fn: () => Promise<void> }> = [
         {
           name: "usage_events",
@@ -81,6 +88,24 @@ export async function processDeletionRequests(
           name: "identities",
           fn: () => {
             return db.delete(identities).where(eq(identities.userId, userId)).then(() => {});
+          },
+        },
+        {
+          // Delete encrypted secrets BEFORE connections (child of connections)
+          name: "encrypted_secrets",
+          fn: async () => {
+            // Find all connection IDs for this user, then delete their secrets
+            const connections = await db
+              .select({ id: aiProviderConnections.id })
+              .from(aiProviderConnections)
+              .where(eq(aiProviderConnections.userId, userId));
+
+            if (connections.length > 0) {
+              const connectionIds = connections.map((c) => c.id);
+              await db
+                .delete(encryptedSecrets)
+                .where(inArray(encryptedSecrets.connectionId, connectionIds));
+            }
           },
         },
         {
@@ -135,6 +160,53 @@ export async function processDeletionRequests(
           },
         },
         {
+          name: "neon_auth_user",
+          fn: async () => {
+            if (!neonAuthBaseUrl) return;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+
+            try {
+              const resp = await fetch(
+                `${neonAuthBaseUrl}/admin/remove-user`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ userId }),
+                  signal: controller.signal,
+                },
+              );
+              if (!resp.ok && resp.status !== 404) {
+                throw new Error(`HTTP ${resp.status}`);
+              }
+            } catch (err) {
+              // Log warning but don't block deletion — record audit event
+              logger.warn("Neon Auth user deletion request failed", { userId, error: String(err) });
+
+              await db.execute(
+                sql`INSERT INTO audit_events (action, resource_type, metadata, created_at)
+                    VALUES ('neon_auth.deletion_pending', 'user',
+                            ${JSON.stringify({ userId, error: String(err) })}, NOW())`
+              );
+            } finally {
+              clearTimeout(timeout);
+            }
+          },
+        },
+        {
+          // Delete the deletion request itself BEFORE the user row,
+          // because deletion_requests has onDelete: cascade from users —
+          // if we delete the user first, the cascade silently removes this
+          // row and we lose the ability to track completion.
+          name: "deletion_requests",
+          fn: () => {
+            return db
+              .delete(deletionRequests)
+              .where(eq(deletionRequests.id, deletion.id))
+              .then(() => {});
+          },
+        },
+        {
           name: "users",
           fn: () => {
             return db.delete(users).where(eq(users.id, userId)).then(() => {});
@@ -142,43 +214,55 @@ export async function processDeletionRequests(
         },
       ];
 
+      // Track which step we're on for progress updates.
+      // After "deletion_requests" step, we can no longer update progress
+      // because the row is gone, so we track it in-memory.
+      let deletionRequestDeleted = false;
+
       for (const step of steps) {
-        if (tables[step.name]) continue; // Already processed
+        if (tables[step.name]) {
+          if (step.name === "deletion_requests") deletionRequestDeleted = true;
+          continue; // Already processed in a previous attempt
+        }
 
         await step.fn();
         tables[step.name] = true;
 
-        // Update progress
-        await db
-          .update(deletionRequests)
-          .set({ processedTables: tables })
-          .where(eq(deletionRequests.id, deletion.id));
-      }
+        if (step.name === "deletion_requests") {
+          deletionRequestDeleted = true;
+          continue; // Row is gone, can't update progress
+        }
 
-      // Mark as completed
-      await db
-        .update(deletionRequests)
-        .set({
-          status: "completed",
-          completedAt: new Date(),
-          processedTables: tables,
-        })
-        .where(eq(deletionRequests.id, deletion.id));
+        // Update progress (only if deletion_request row still exists)
+        if (!deletionRequestDeleted) {
+          await db
+            .update(deletionRequests)
+            .set({ processedTables: tables })
+            .where(eq(deletionRequests.id, deletion.id));
+        }
+      }
 
       processed++;
       logger.info("Deletion request completed", {
         deletionId: deletion.id,
         userId,
+        tablesProcessed: Object.keys(tables),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      await db
-        .update(deletionRequests)
-        .set({
-          status: "failed",
-          errorDetails: message,
-        })
-        .where(eq(deletionRequests.id, deletion.id));
+
+      // Try to update the deletion request — it may have been cascade-deleted
+      try {
+        await db
+          .update(deletionRequests)
+          .set({
+            status: "failed",
+            errorDetails: message,
+          })
+          .where(eq(deletionRequests.id, deletion.id));
+      } catch {
+        // Row was likely cascade-deleted, log and move on
+      }
 
       logger.error("Deletion request failed", {
         deletionId: deletion.id,

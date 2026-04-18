@@ -57,22 +57,23 @@ See `backend/CLAUDE.md` for the full breakdown. Key points:
 
 - **Clean architecture**: `domain → application → infrastructure ← adapters`
 - **Result type** (`src/shared/result.ts`): use cases return `Result<T,E>` — check `.ok` before `.value`/`.error`, never throw
-- **Auth**: pluggable via `AUTH_PROVIDER` env — `clerk` (prod/staging) or `better-auth` (dev, per `wrangler.toml`)
+- **Auth**: pluggable via `AUTH_PROVIDER` env — `clerk` (prod/staging), `better-auth` (dev, per `wrangler.toml`), or `neon-auth` (Neon Auth managed service)
 - **Envelope encryption**: provider API keys stored AES-256-GCM two-layer encrypted; `KEK_CURRENT` must be 32-byte base64
 
 Local secrets go in `backend/.dev.vars` (Wrangler loads automatically, never commit this file).
 
 ## Dashboard architecture
 
-- **Auth flow**: Clerk provides identity → `loginWithClerk()` exchanges a Clerk JWT for backend access/refresh tokens stored in `localStorage` under `a11y_tokens` → `apiFetch` auto-refreshes on 401
+- **Auth flow**: external identity (Clerk/Neon-Auth/Better-Auth) → `POST /auth/login` exchanges a provider JWT for backend access/refresh tokens stored in `localStorage` → `apiFetch` auto-refreshes on 401
 - **`src/lib/api.ts`**: single file for all API calls, typed return values, handles token storage and refresh
 - **`src/lib/auth.tsx`**: `AuthProvider` + `useAuth` hook — exposes `isAuthenticated`, `isAdmin`, `profile`, `loginWithClerk`, `logout`, `refreshProfile`
 - **Route guards**: `RequireAuth` redirects to `/login`; `RequireAdmin` redirects to `/dashboard`
+- **User routes** (`/dashboard/*`): overview, AI provider connections, profile/settings
 - **Admin routes** (`/admin/*`): stats, users, models, audit log, job management — all require `role === "admin"`
 
 Dashboard env vars (copy `.env.example` → `.env.local`):
-- `VITE_API_URL` — backend URL (defaults to `https://api.a11y.eliasrm.dev`)
-- `VITE_CLERK_PUBLISHABLE_KEY` — `pk_test_*` for dev, `pk_live_*` for prod
+- `VITE_API_URL` — backend URL
+- `VITE_CLERK_PUBLISHABLE_KEY` — `pk_test_*` for dev, `pk_live_*` for prod (only if using Clerk auth)
 
 ## What the product is
 

@@ -2,6 +2,7 @@ import type { AuthPort } from "../../domain/ports/auth.port.js";
 import type { Env } from "../../env.js";
 import { ClerkAuthAdapter } from "./clerk.adapter.js";
 import { BetterAuthAdapter } from "./better-auth.adapter.js";
+import { NeonAuthAdapter } from "./neon-auth.adapter.js";
 
 export function createAuthAdapter(env: Env): AuthPort {
   switch (env.AUTH_PROVIDER) {
@@ -21,6 +22,15 @@ export function createAuthAdapter(env: Env): AuthPort {
         );
       }
       return new BetterAuthAdapter(env.JWT_SECRET, env.BETTER_AUTH_SECRET);
+
+    case "neon-auth":
+      if (!env.NEON_AUTH_JWKS_URL) {
+        throw new Error("NEON_AUTH_JWKS_URL is required when AUTH_PROVIDER=neon-auth");
+      }
+      if (!env.NEON_AUTH_BASE_URL) {
+        throw new Error("NEON_AUTH_BASE_URL is required when AUTH_PROVIDER=neon-auth");
+      }
+      return new NeonAuthAdapter(env.JWT_SECRET, env.NEON_AUTH_JWKS_URL, env.NEON_AUTH_BASE_URL);
 
     default:
       throw new Error(`Unknown AUTH_PROVIDER: ${env.AUTH_PROVIDER}`);

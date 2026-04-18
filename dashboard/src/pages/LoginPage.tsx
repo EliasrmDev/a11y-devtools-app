@@ -1,6 +1,14 @@
 import { SignIn } from "@clerk/clerk-react";
+import { useAuth } from "@/lib/auth";
+import AuthErrorPage from "@/components/AuthErrorPage";
 
 export default function LoginPage() {
+  const { error, isLoading } = useAuth();
+
+  // Show error page if there's a connection error
+  if (error && !isLoading) {
+    return <AuthErrorPage />;
+  }
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">

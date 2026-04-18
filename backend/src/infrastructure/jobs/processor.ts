@@ -12,6 +12,7 @@ import { remindKeyRotation } from "./handlers/reminder-key-rotation.js";
 import { remindInvalidCredential } from "./handlers/reminder-invalid-credential.js";
 import { cleanupSoftDeleted } from "./handlers/cleanup-soft-deleted.js";
 import { detectInactiveAccounts } from "./handlers/detect-inactive-accounts.js";
+import { cleanupExpiredModelCache } from "./handlers/cleanup-model-cache.js";
 
 /**
  * Cron-triggered batch processor (fires every minute via CF Workers cron).
@@ -25,6 +26,7 @@ export async function processScheduledJobs(
   db: Database,
   notifications: NotificationService,
   logger: Logger,
+  opts?: { neonAuthBaseUrl?: string },
 ): Promise<void> {
   const start = Date.now();
   logger.info("Starting scheduled job processing");
@@ -78,13 +80,20 @@ export async function processScheduledJobs(
       new Date(),
     );
 
+    await queue.scheduleIfNotExists(
+      "CLEANUP_EXPIRED_MODEL_CACHE",
+      `daily:${Math.floor(Date.now() / 86_400_000)}`,
+      {},
+      new Date(),
+    );
+
     // Dequeue and execute up to 10 pending jobs
     const jobs = await queue.dequeueNextBatch(10);
     logger.info("Processing queued jobs", { count: jobs.length });
 
     for (const job of jobs) {
       try {
-        await dispatchJob(job.name, db, notifications, logger);
+        await dispatchJob(job.name, db, notifications, logger, opts);
         await queue.complete(job.id);
         logger.info("Job completed", { jobId: job.id, name: job.name });
       } catch (error) {
@@ -114,6 +123,7 @@ async function dispatchJob(
   db: Database,
   notifications: NotificationService,
   logger: Logger,
+  opts?: { neonAuthBaseUrl?: string },
 ): Promise<void> {
   switch (name) {
     case "REMINDER_KEY_ROTATION":
@@ -130,11 +140,11 @@ async function dispatchJob(
       break;
 
     case "CLEANUP_SOFT_DELETED":
-      await cleanupSoftDeleted(db, logger);
+      await cleanupSoftDeleted(db, logger, opts?.neonAuthBaseUrl);
       break;
 
     case "PROCESS_DELETION_REQUESTS":
-      await processDeletionRequests(db, logger, notifications);
+      await processDeletionRequests(db, logger, notifications, opts?.neonAuthBaseUrl);
       break;
 
     case "CLEANUP_USAGE_EVENTS":
@@ -143,6 +153,10 @@ async function dispatchJob(
 
     case "DETECT_INACTIVE_ACCOUNTS":
       await detectInactiveAccounts(db, notifications, logger);
+      break;
+
+    case "CLEANUP_EXPIRED_MODEL_CACHE":
+      await cleanupExpiredModelCache(db, logger);
       break;
 
     default:

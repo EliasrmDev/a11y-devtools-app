@@ -5,7 +5,7 @@ export class ResendEmailAdapter implements EmailPort {
   private readonly client: Resend;
   private readonly from: string;
 
-  constructor(apiKey: string, from = "a11y DevTools <noreply@a11ydevtools.com>") {
+  constructor(apiKey: string, from = "a11y DevTools <noreply@app.a11y.eliasrm.dev>") {
     this.client = new Resend(apiKey);
     this.from = from;
   }

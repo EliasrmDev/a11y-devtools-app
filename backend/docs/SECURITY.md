@@ -51,13 +51,15 @@ plaintext
 
 ## Rate limiting
 
-Three Cloudflare-native rate limiters (not in-process — enforced at the edge before the Worker runs):
+Five Cloudflare-native rate limiters (not in-process — enforced at the edge before the Worker runs):
 
 | Limiter | Limit | Scope |
 |---------|-------|-------|
 | `RATE_LIMITER_AUTH` | 5 req / 60 s | Login, refresh, logout |
 | `RATE_LIMITER_API` | 60 req / 60 s | Provider CRUD, admin endpoints |
 | `RATE_LIMITER_PROXY` | 20 req / 60 s | AI proxy, accessibility suggest |
+| `RATE_LIMITER_MODELS` | 10 req / 60 s | Live model fetch for a single connection |
+| `RATE_LIMITER_MODELS_AGG` | 5 req / 60 s | Aggregated model fetch across all connections |
 
 ---
 

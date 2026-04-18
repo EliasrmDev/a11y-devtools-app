@@ -25,6 +25,7 @@ Current tables:
 | `notification_preferences` | `notification-preferences.ts` | Per-user notification settings |
 | `reminder_jobs` | `reminder-jobs.ts` | Scheduled reminder state |
 | `background_jobs` | `background-jobs.ts` | Job queue (pending/running/completed/dead) |
+| `provider_models_cache` | `provider-models-cache.ts` | Live model list cache per provider (TTL-based, 1-hour expiry) |
 
 ---
 

@@ -3,6 +3,8 @@ export const RATE_LIMITS = {
   AUTH: { limit: 5, periodSeconds: 60 },
   API: { limit: 60, periodSeconds: 60 },
   PROXY: { limit: 20, periodSeconds: 60 },
+  MODELS: { limit: 10, periodSeconds: 60 },
+  MODELS_AGG: { limit: 5, periodSeconds: 60 },
 } as const;
 
 /** Token lifetimes */
@@ -52,6 +54,14 @@ export const AUTH = {
 export const JOBS = {
   BATCH_SIZE: 50,
   KEK_ROTATION_BATCH: 50,
+} as const;
+
+/** Provider model cache TTLs */
+export const MODEL_CACHE = {
+  DB_TTL_MS: 3_600_000,       // 1 hour
+  MEMORY_TTL_MS: 300_000,     // 5 minutes
+  CLEANUP_MAX_AGE_MS: 86_400_000, // 24 hours
+  FETCH_TIMEOUT_MS: 10_000,   // 10 seconds per provider
 } as const;
 
 /** Accessibility suggestion proxy */

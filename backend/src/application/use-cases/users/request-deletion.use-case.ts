@@ -4,10 +4,24 @@ import type { EmailPort } from "../../../domain/ports/email.port.js";
 import { NotFoundError, ConflictError } from "../../../domain/errors/index.js";
 import { RETENTION } from "../../../shared/constants.js";
 
+export interface DeletionRequest {
+  id: string;
+  userId: string;
+  status: string;
+  requestedAt: Date;
+  scheduledFor: Date;
+  completedAt: Date | null;
+  processedTables: Record<string, boolean> | null;
+  errorDetails: string | null;
+}
+
 export interface DeletionRequestCreator {
   create(userId: string, scheduledFor: Date): Promise<void>;
   findPendingByUser(userId: string): Promise<{ id: string } | null>;
   cancel(id: string): Promise<void>;
+  listAll(params: { page: number; limit: number; status?: string }): Promise<{ data: DeletionRequest[]; total: number }>;
+  findById(id: string): Promise<DeletionRequest | null>;
+  forceScheduleNow(id: string): Promise<void>;
 }
 
 export class RequestDeletionUseCase {
@@ -16,6 +30,7 @@ export class RequestDeletionUseCase {
     private readonly deletions: DeletionRequestCreator,
     private readonly audit: AuditRepository,
     private readonly email: EmailPort,
+    private readonly graceDays: number = RETENTION.DELETION_GRACE_DAYS,
   ) {}
 
   async execute(
@@ -36,7 +51,7 @@ export class RequestDeletionUseCase {
     // Schedule deletion after grace period
     const scheduledFor = new Date();
     scheduledFor.setDate(
-      scheduledFor.getDate() + RETENTION.DELETION_GRACE_DAYS,
+      scheduledFor.getDate() + this.graceDays,
     );
 
     // Soft delete user immediately
@@ -62,7 +77,7 @@ export class RequestDeletionUseCase {
       subject: "Account Deletion Scheduled — a11y DevTools",
       html: `
         <p>Your account deletion has been scheduled for ${scheduledFor.toLocaleDateString()}.</p>
-        <p>You have ${RETENTION.DELETION_GRACE_DAYS} days to cancel this request by logging in.</p>
+        <p>You have ${this.graceDays} days to cancel this request by logging in.</p>
         <p>After this date, all your data will be permanently deleted.</p>
       `,
     });

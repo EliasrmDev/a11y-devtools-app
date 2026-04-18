@@ -4,12 +4,15 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   KEK_CURRENT: z.string().min(1),
   KEK_VERSION: z.coerce.number().int().positive().default(1),
-  AUTH_PROVIDER: z.enum(["clerk", "better-auth"]).default("clerk"),
+  AUTH_PROVIDER: z.enum(["clerk", "better-auth", "neon-auth"]).default("clerk"),
   CLERK_SECRET_KEY: z.string().optional(),
   CLERK_PUBLISHABLE_KEY: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().optional(),
+  NEON_AUTH_BASE_URL: z.string().url().optional(),
+  NEON_AUTH_JWKS_URL: z.string().url().optional(),
   JWT_SECRET: z.string().min(32),
   RESEND_API_KEY: z.string().min(1),
+  DELETION_GRACE_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   LOGTAIL_SOURCE_TOKEN: z.string().optional(),
   ALLOWED_ORIGINS: z.string().default(""),
   ALLOWED_ORIGINS_DEV: z.string().default(""),
@@ -24,6 +27,8 @@ export interface CloudflareBindings extends Env {
   RATE_LIMITER_AUTH: RateLimit;
   RATE_LIMITER_API: RateLimit;
   RATE_LIMITER_PROXY: RateLimit;
+  RATE_LIMITER_MODELS: RateLimit;
+  RATE_LIMITER_MODELS_AGG: RateLimit;
   /** Cloudflare Workers AI binding — available when [ai] is set in wrangler.toml */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AI?: { run(model: string, input: Record<string, unknown>): Promise<any> };

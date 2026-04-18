@@ -2,12 +2,15 @@ import type { AuthPort } from "../../../domain/ports/auth.port.js";
 import type { UserRepository } from "../../../domain/ports/user.repository.js";
 import type { AuditRepository } from "../../../domain/ports/audit.repository.js";
 import type { TokenPairOutput } from "../../dto/auth.dto.js";
+import type { Database } from "../../../infrastructure/db/client.js";
+import { identities } from "../../../infrastructure/db/schema/identities.js";
 
 export class LoginUseCase {
   constructor(
     private readonly auth: AuthPort,
     private readonly users: UserRepository,
     private readonly audit: AuditRepository,
+    private readonly db: Database,
   ) {}
 
   async execute(
@@ -22,11 +25,29 @@ export class LoginUseCase {
 
     if (!user) {
       user = await this.users.create({
+        ...(externalUser.provider === "neon-auth" ? { id: externalUser.externalId } : {}),
         email: externalUser.email,
         displayName: externalUser.displayName,
         avatarUrl: externalUser.avatarUrl,
         emailVerifiedAt: externalUser.emailVerified ? new Date() : null,
       });
+    } else if (externalUser.provider === "neon-auth") {
+      // User exists but might not have Neon Auth identity - ensure it's created/updated
+      await this.db
+        .insert(identities)
+        .values({
+          userId: user.id,
+          provider: "neon-auth",
+          providerAccountId: externalUser.externalId,
+          providerEmail: externalUser.email,
+        })
+        .onConflictDoUpdate({
+          target: [identities.provider, identities.providerAccountId],
+          set: {
+            providerEmail: externalUser.email,
+            updatedAt: new Date(),
+          },
+        });
     }
 
     // 3. Create JWT pair

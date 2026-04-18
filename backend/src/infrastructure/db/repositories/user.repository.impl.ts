@@ -36,6 +36,7 @@ export class UserRepositoryImpl implements UserRepository {
     const rows = await this.db
       .insert(users)
       .values({
+        ...(data.id ? { id: data.id } : {}),
         email: data.email,
         displayName: data.displayName ?? null,
         avatarUrl: data.avatarUrl ?? null,

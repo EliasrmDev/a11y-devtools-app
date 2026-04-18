@@ -13,7 +13,7 @@
 wrangler secret list   # check AUTH_PROVIDER
 ```
 
-Default per environment (`wrangler.toml`): `clerk` in production/staging, `better-auth` in dev.
+Default per environment (`wrangler.toml`): `clerk` in production/staging, `better-auth` in dev. `neon-auth` is also supported in any environment.
 
 ### 2. Clerk outage
 
@@ -38,15 +38,24 @@ SELECT COUNT(*) FROM revoked_tokens WHERE expires_at > NOW();
 
 ## Mitigation
 
-### Clerk outage → switch to Better Auth
+### Clerk outage → switch to Better Auth or Neon Auth
 
+**Better Auth:**
 ```bash
 wrangler secret put AUTH_PROVIDER        # "better-auth"
 wrangler secret put BETTER_AUTH_SECRET   # new random secret
 npm run deploy
 ```
 
-Users must re-authenticate (Clerk tokens are not valid under Better Auth). Revert once Clerk recovers.
+**Neon Auth:**
+```bash
+wrangler secret put AUTH_PROVIDER        # "neon-auth"
+wrangler secret put NEON_AUTH_JWKS_URL   # Neon Auth JWKS endpoint
+wrangler secret put NEON_AUTH_BASE_URL   # Neon Auth base URL
+npm run deploy
+```
+
+Users must re-authenticate in all cases — tokens from one provider are not valid under another. Revert once the original provider recovers.
 
 ### JWT_SECRET accidentally overwritten
 

@@ -36,9 +36,14 @@ export class ManageJobsUseCase {
       userId: adminUserId,
       action: "admin.job.run",
       resourceType: "background_job",
-      resourceId: name,
+      resourceId: null, // Jobs don't have UUIDs, store name in metadata instead
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
+      metadata: {
+        jobName: name,
+        updatedJobs: updated,
+        enqueuedFresh: updated === 0,
+      },
     });
   }
 }

@@ -13,6 +13,8 @@ dist/
 .env.local
 .env.*.local
 
+/scripts
+
 # Logs
 *.log
 logs/

@@ -2,7 +2,7 @@ import { createMiddleware } from "hono/factory";
 import type { CloudflareBindings } from "../../env.js";
 import { RATE_LIMITS } from "../../shared/constants.js";
 
-type RateLimiterName = "RATE_LIMITER_AUTH" | "RATE_LIMITER_API" | "RATE_LIMITER_PROXY";
+type RateLimiterName = "RATE_LIMITER_AUTH" | "RATE_LIMITER_API" | "RATE_LIMITER_PROXY" | "RATE_LIMITER_MODELS" | "RATE_LIMITER_MODELS_AGG";
 
 export const rateLimitMiddleware = (limiterName: RateLimiterName) =>
   createMiddleware<{ Bindings: CloudflareBindings }>(async (c, next) => {
@@ -27,6 +27,8 @@ export const rateLimitMiddleware = (limiterName: RateLimiterName) =>
         RATE_LIMITER_AUTH: RATE_LIMITS.AUTH.limit,
         RATE_LIMITER_API: RATE_LIMITS.API.limit,
         RATE_LIMITER_PROXY: RATE_LIMITS.PROXY.limit,
+        RATE_LIMITER_MODELS: RATE_LIMITS.MODELS.limit,
+        RATE_LIMITER_MODELS_AGG: RATE_LIMITS.MODELS_AGG.limit,
       };
 
       return c.json(
