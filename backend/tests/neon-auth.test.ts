@@ -3,6 +3,7 @@ import { LoginUseCase } from "../src/application/use-cases/auth/login.use-case.j
 import type { AuthPort, ExternalAuthResult } from "../src/domain/ports/auth.port.js";
 import type { UserRepository } from "../src/domain/ports/user.repository.js";
 import type { AuditRepository } from "../src/domain/ports/audit.repository.js";
+import type { DeletionRequestCreator } from "../src/application/use-cases/users/request-deletion.use-case.js";
 import type { Database } from "../src/infrastructure/db/client.js";
 import type { JwtPayload, TokenPair } from "../src/shared/types.js";
 
@@ -49,6 +50,7 @@ function mockUserRepo(overrides: Partial<UserRepository> = {}): UserRepository {
   return {
     findById: vi.fn().mockResolvedValue(null),
     findByEmail: vi.fn().mockResolvedValue(null),
+    findByEmailIncludingDeleted: vi.fn().mockResolvedValue(null),
     create: vi.fn().mockImplementation(async (data) => ({
       id: data.id ?? "generated-uuid",
       email: data.email,
@@ -98,19 +100,30 @@ describe("Neon Auth — LoginUseCase", () => {
   let users: UserRepository;
   let audit: AuditRepository;
   let db: Database;
+  let deletions: DeletionRequestCreator;
 
   beforeEach(() => {
     auth = mockAuthPort();
     users = mockUserRepo();
     audit = mockAuditRepo();
     db = mockDatabase();
+    deletions = {
+      create: vi.fn(),
+      findPendingByUser: vi.fn(),
+      findActiveByUser: vi.fn(),
+      cancel: vi.fn(),
+      cancelByUserId: vi.fn(),
+      listAll: vi.fn(),
+      findById: vi.fn(),
+      forceScheduleNow: vi.fn(),
+    };
   });
 
   it("creates a new user with the Neon Auth user ID", async () => {
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
     const result = await uc.execute("neon-jwt-token", {});
 
-    // findByEmail returns null → create is called
+    // findByEmailIncludingDeleted returns null → create is called
     expect(users.create).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "neon-uuid-123",
@@ -135,7 +148,7 @@ describe("Neon Auth — LoginUseCase", () => {
       }),
     });
 
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
     await uc.execute("clerk-jwt-token", {});
 
     const createCall = (users.create as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
@@ -145,7 +158,7 @@ describe("Neon Auth — LoginUseCase", () => {
 
   it("re-uses existing user when email already exists", async () => {
     users = mockUserRepo({
-      findByEmail: vi.fn().mockResolvedValue({
+      findByEmailIncludingDeleted: vi.fn().mockResolvedValue({
         id: "existing-user-id",
         email: "alice@example.com",
         displayName: "Alice",
@@ -158,7 +171,7 @@ describe("Neon Auth — LoginUseCase", () => {
       }),
     });
 
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
     const result = await uc.execute("neon-jwt-token", {});
 
     expect(users.create).not.toHaveBeenCalled();
@@ -166,7 +179,7 @@ describe("Neon Auth — LoginUseCase", () => {
   });
 
   it("records audit log with neon-auth provider", async () => {
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
     await uc.execute("neon-jwt-token", { ipAddress: "1.2.3.4", userAgent: "test" });
 
     expect(audit.create).toHaveBeenCalledWith(

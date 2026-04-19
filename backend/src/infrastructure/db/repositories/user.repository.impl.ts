@@ -1,4 +1,4 @@
-import { eq, and, isNull, count } from "drizzle-orm";
+import { eq, and, isNull, count, sql } from "drizzle-orm";
 import type { Database } from "../client.js";
 import { users } from "../schema/users.js";
 import type { User } from "../../../domain/entities/user.entity.js";
@@ -27,6 +27,17 @@ export class UserRepositoryImpl implements UserRepository {
       .select()
       .from(users)
       .where(and(eq(users.email, email), isNull(users.deletedAt)))
+      .limit(1);
+
+    return rows[0] ? this.toDomain(rows[0]) : null;
+  }
+
+  async findByEmailIncludingDeleted(email: string): Promise<User | null> {
+    const rows = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .orderBy(sql`${users.deletedAt} ASC NULLS FIRST`)
       .limit(1);
 
     return rows[0] ? this.toDomain(rows[0]) : null;

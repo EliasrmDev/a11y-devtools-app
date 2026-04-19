@@ -16,6 +16,27 @@ export class ManageJobsUseCase {
     return { data };
   }
 
+  /** Purge job history, keeping the last `keepCount` per job name. */
+  async purgeHistory(
+    keepCount: number,
+    adminUserId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<{ deleted: number }> {
+    const deleted = await this.jobQueue.purgeKeepLast(keepCount);
+
+    await this.audit.create({
+      userId: adminUserId,
+      action: "admin.jobs.purge",
+      resourceType: "background_job",
+      resourceId: null,
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      metadata: { keepCount, deleted },
+    });
+
+    return { deleted };
+  }
+
   /**
    * Sets all pending jobs with the given name to run immediately.
    * If none exist, enqueues a fresh one.

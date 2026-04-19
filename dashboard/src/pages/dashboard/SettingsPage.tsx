@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { updateProfile, requestDeletion, cancelDeletion, exportData } from "@/lib/api";
+import { updateProfile, requestDeletion, cancelDeletion, exportData, getDeletionStatus } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Save, Download, Trash2, Loader2 } from "lucide-react";
+import { Save, Download, Trash2, Loader2, AlertTriangle } from "lucide-react";
 
 export default function SettingsPage() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, activeDeletion, setActiveDeletion } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -49,7 +49,8 @@ export default function SettingsPage() {
     if (!confirm("Are you sure? Your account will be scheduled for deletion.")) return;
     try {
       await requestDeletion();
-      alert("Account deletion scheduled. You can cancel this within the grace period.");
+      const r = await getDeletionStatus();
+      setActiveDeletion(r.deletion);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to request deletion");
     }
@@ -58,7 +59,7 @@ export default function SettingsPage() {
   const handleCancelDeletion = async () => {
     try {
       await cancelDeletion();
-      alert("Deletion cancelled.");
+      setActiveDeletion(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to cancel deletion");
     }
@@ -131,14 +132,42 @@ export default function SettingsPage() {
               Permanently delete your account and all associated data.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex gap-3">
-            <Button variant="destructive" onClick={handleRequestDeletion}>
-              <Trash2 className="h-4 w-4" />
-              Request Deletion
-            </Button>
-            <Button variant="outline" onClick={handleCancelDeletion}>
-              Cancel Deletion
-            </Button>
+          <CardContent className="space-y-4">
+            {activeDeletion && (
+              <div className="flex items-start gap-3 rounded-[8px] border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-warn">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>
+                  <span className="font-semibold">Deletion scheduled</span>
+                  {activeDeletion.scheduledFor && (
+                    <> for{" "}
+                      <span className="font-semibold">
+                        {new Date(activeDeletion.scheduledFor).toLocaleDateString(undefined, {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </>
+                  )}
+                  . All your data will be permanently removed on that date.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <Button
+                variant="destructive"
+                onClick={handleRequestDeletion}
+                disabled={!!activeDeletion}
+              >
+                <Trash2 className="h-4 w-4" />
+                Request Deletion
+              </Button>
+              {activeDeletion && (
+                <Button variant="outline" onClick={handleCancelDeletion}>
+                  Cancel Deletion
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

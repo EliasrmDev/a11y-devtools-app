@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router";
 import { useAuth } from "@/lib/auth";
 import { UserButton } from "@clerk/clerk-react";
+import { isClerkAuth } from "@/lib/auth-mode";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
@@ -135,13 +136,19 @@ export default function DashboardLayout() {
         {/* User footer */}
         <div className="border-t border-border px-4 py-3">
           <div className="flex items-center gap-3">
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "h-8 w-8",
-                },
-              }}
-            />
+            {isClerkAuth ? (
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "h-8 w-8",
+                  },
+                }}
+              />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-medium text-primary-light">
+                {(profile?.displayName?.[0] ?? profile?.email?.[0] ?? "?").toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium text-text">
                 {profile?.displayName || profile?.email}
@@ -176,7 +183,13 @@ export default function DashboardLayout() {
             A11y<span className="text-sub">/</span>DevTools
           </span>
           <div className="ml-auto">
-            <UserButton appearance={{ elements: { avatarBox: "h-8 w-8" } }} />
+            {isClerkAuth ? (
+              <UserButton appearance={{ elements: { avatarBox: "h-8 w-8" } }} />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-sm font-medium text-primary-light">
+                {(profile?.displayName?.[0] ?? profile?.email?.[0] ?? "?").toUpperCase()}
+              </div>
+            )}
           </div>
         </header>
 

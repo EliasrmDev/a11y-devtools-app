@@ -1,4 +1,4 @@
-import { eq, and, count, desc } from "drizzle-orm";
+import { eq, and, count, desc, sql } from "drizzle-orm";
 import type { Database } from "../client.js";
 import { deletionRequests } from "../schema/deletion-requests.js";
 import type {
@@ -34,11 +34,46 @@ export class DeletionRequestRepositoryImpl implements DeletionRequestCreator {
     return rows[0] ?? null;
   }
 
+  async findActiveByUser(
+    userId: string,
+  ): Promise<{ id: string; status: string; scheduledFor: Date; requestedAt: Date } | null> {
+    const rows = await this.db
+      .select({
+        id: deletionRequests.id,
+        status: deletionRequests.status,
+        scheduledFor: deletionRequests.scheduledFor,
+        requestedAt: deletionRequests.requestedAt,
+      })
+      .from(deletionRequests)
+      .where(
+        and(
+          eq(deletionRequests.userId, userId),
+          sql`${deletionRequests.status} IN ('pending', 'processing')`,
+        ),
+      )
+      .orderBy(desc(deletionRequests.requestedAt))
+      .limit(1);
+
+    return rows[0] ?? null;
+  }
+
   async cancel(id: string): Promise<void> {
     await this.db
       .update(deletionRequests)
       .set({ status: "cancelled" })
       .where(eq(deletionRequests.id, id));
+  }
+
+  async cancelByUserId(userId: string): Promise<void> {
+    await this.db
+      .update(deletionRequests)
+      .set({ status: "cancelled" })
+      .where(
+        and(
+          eq(deletionRequests.userId, userId),
+          sql`${deletionRequests.status} IN ('pending', 'processing')`,
+        ),
+      );
   }
 
   async listAll(params: {

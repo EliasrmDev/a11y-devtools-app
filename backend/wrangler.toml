@@ -64,7 +64,7 @@ binding = "AI"
 
 # ── Development environment ───────────────────────────────────────────────────
 [env.dev]
-vars = { ENVIRONMENT = "development", AUTH_PROVIDER = "better-auth" }
+vars = { ENVIRONMENT = "development", AUTH_PROVIDER = "clerk" }
 
 # Rate limiters are optional in dev (binding is nil-safe: requests pass through)
 [[env.dev.unsafe.bindings]]

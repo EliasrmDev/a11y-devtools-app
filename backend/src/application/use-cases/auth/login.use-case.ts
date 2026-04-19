@@ -1,6 +1,7 @@
 import type { AuthPort } from "../../../domain/ports/auth.port.js";
 import type { UserRepository } from "../../../domain/ports/user.repository.js";
 import type { AuditRepository } from "../../../domain/ports/audit.repository.js";
+import type { DeletionRequestCreator } from "../users/request-deletion.use-case.js";
 import type { TokenPairOutput } from "../../dto/auth.dto.js";
 import type { Database } from "../../../infrastructure/db/client.js";
 import { identities } from "../../../infrastructure/db/schema/identities.js";
@@ -11,6 +12,7 @@ export class LoginUseCase {
     private readonly users: UserRepository,
     private readonly audit: AuditRepository,
     private readonly db: Database,
+    private readonly deletions: DeletionRequestCreator,
   ) {}
 
   async execute(
@@ -20,8 +22,8 @@ export class LoginUseCase {
     // 1. Verify external OAuth token
     const externalUser = await this.auth.verifyExternalToken(externalToken);
 
-    // 2. Find or create user
-    let user = await this.users.findByEmail(externalUser.email);
+    // 2. Find or create user (including soft-deleted users to prevent duplicates)
+    let user = await this.users.findByEmailIncludingDeleted(externalUser.email);
 
     if (!user) {
       user = await this.users.create({
@@ -31,6 +33,21 @@ export class LoginUseCase {
         avatarUrl: externalUser.avatarUrl,
         emailVerifiedAt: externalUser.emailVerified ? new Date() : null,
       });
+    } else if (user.deletedAt) {
+      // User was soft-deleted (pending deletion) — restore on login
+      await this.users.restore(user.id);
+      await this.deletions.cancelByUserId(user.id);
+      await this.audit.create({
+        userId: user.id,
+        action: "user.restored_on_login",
+        resourceType: "user",
+        resourceId: user.id,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        metadata: { provider: externalUser.provider },
+      });
+      // Re-fetch to get the restored state
+      user = (await this.users.findByEmail(externalUser.email))!;
     } else if (externalUser.provider === "neon-auth") {
       // User exists but might not have Neon Auth identity - ensure it's created/updated
       await this.db

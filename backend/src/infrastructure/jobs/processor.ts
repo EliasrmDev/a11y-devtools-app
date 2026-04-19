@@ -107,6 +107,12 @@ export async function processScheduledJobs(
       }
     }
 
+    // Purge completed/dead jobs older than 1 days to prevent unbounded growth
+    const purged = await queue.purge(1);
+    if (purged > 0) {
+      logger.info("Purged old completed jobs", { count: purged });
+    }
+
     logger.info("Scheduled job processing completed", {
       durationMs: Date.now() - start,
     });

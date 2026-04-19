@@ -5,7 +5,7 @@ import { updateProfileInputSchema } from "../../application/dto/user.dto.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.middleware.js";
 import type { GetProfileUseCase } from "../../application/use-cases/users/get-profile.use-case.js";
 import type { UpdateProfileUseCase } from "../../application/use-cases/users/update-profile.use-case.js";
-import type { RequestDeletionUseCase, CancelDeletionUseCase } from "../../application/use-cases/users/request-deletion.use-case.js";
+import type { RequestDeletionUseCase, CancelDeletionUseCase, DeletionRequestCreator } from "../../application/use-cases/users/request-deletion.use-case.js";
 import type { ExportDataUseCase } from "../../application/use-cases/users/export-data.use-case.js";
 
 export function createUserRoutes(deps: {
@@ -14,6 +14,7 @@ export function createUserRoutes(deps: {
   requestDeletion: RequestDeletionUseCase;
   cancelDeletion: CancelDeletionUseCase;
   exportData: ExportDataUseCase;
+  deletionRepo: DeletionRequestCreator;
 }) {
   const app = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -50,6 +51,23 @@ export function createUserRoutes(deps: {
       userAgent: c.req.header("User-Agent"),
     });
     return c.json(result, 202);
+  });
+
+  // GET /users/me/deletion
+  app.get("/me/deletion", async (c) => {
+    const active = await deps.deletionRepo.findActiveByUser(c.get("userId"));
+    if (!active) return c.json({ deletion: null }, 200);
+    return c.json(
+      {
+        deletion: {
+          id: active.id,
+          status: active.status,
+          scheduledFor: active.scheduledFor.toISOString(),
+          requestedAt: active.requestedAt.toISOString(),
+        },
+      },
+      200,
+    );
   });
 
   // DELETE /users/me/deletion

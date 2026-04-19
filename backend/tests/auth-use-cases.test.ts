@@ -7,6 +7,7 @@ import { LoginUseCase } from "../src/application/use-cases/auth/login.use-case.j
 import type { AuthPort, ExternalAuthResult } from "../src/domain/ports/auth.port.js";
 import type { UserRepository } from "../src/domain/ports/user.repository.js";
 import type { AuditRepository } from "../src/domain/ports/audit.repository.js";
+import type { DeletionRequestCreator } from "../src/application/use-cases/users/request-deletion.use-case.js";
 import type { Database } from "../src/infrastructure/db/client.js";
 import type { JwtPayload, TokenPair } from "../src/shared/types.js";
 import { UnauthorizedError } from "../src/domain/errors/index.js";
@@ -64,6 +65,7 @@ function mockUserRepo(overrides: Partial<UserRepository> = {}): UserRepository {
       deletedAt: null,
     }),
     findByEmail: vi.fn().mockResolvedValue(null),
+    findByEmailIncludingDeleted: vi.fn().mockResolvedValue(null),
     create: vi.fn().mockImplementation((data) =>
       Promise.resolve({
         id: "user-1",
@@ -124,20 +126,31 @@ describe("LoginUseCase", () => {
   let users: UserRepository;
   let audit: AuditRepository;
   let db: Database;
+  let deletions: DeletionRequestCreator;
 
   beforeEach(() => {
     auth = mockAuthPort();
     users = mockUserRepo();
     audit = mockAuditRepo();
     db = mockDatabase();
+    deletions = {
+      create: vi.fn(),
+      findPendingByUser: vi.fn(),
+      findActiveByUser: vi.fn(),
+      cancel: vi.fn(),
+      cancelByUserId: vi.fn(),
+      listAll: vi.fn(),
+      findById: vi.fn(),
+      forceScheduleNow: vi.fn(),
+    };
   });
 
   it("should create a new user on first login", async () => {
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
     const result = await uc.execute("external-token", { ipAddress: "1.2.3.4" });
 
     expect(auth.verifyExternalToken).toHaveBeenCalledWith("external-token");
-    expect(users.findByEmail).toHaveBeenCalledWith("test@example.com");
+    expect(users.findByEmailIncludingDeleted).toHaveBeenCalledWith("test@example.com");
     expect(users.create).toHaveBeenCalled();
     expect(auth.createTokenPair).toHaveBeenCalled();
     expect(result.accessToken).toBe("access-tok");
@@ -146,7 +159,7 @@ describe("LoginUseCase", () => {
 
   it("should return existing user on subsequent login", async () => {
     users = mockUserRepo({
-      findByEmail: vi.fn().mockResolvedValue({
+      findByEmailIncludingDeleted: vi.fn().mockResolvedValue({
         id: "existing-user",
         email: "test@example.com",
         displayName: "Test User",
@@ -159,15 +172,45 @@ describe("LoginUseCase", () => {
       }),
     });
 
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
     const result = await uc.execute("external-token", {});
 
     expect(users.create).not.toHaveBeenCalled();
     expect(result.user.id).toBe("existing-user");
   });
 
+  it("should restore a soft-deleted user on login", async () => {
+    const deletedUser = {
+      id: "deleted-user",
+      email: "test@example.com",
+      displayName: "Test User",
+      avatarUrl: null,
+      role: "user" as const,
+      emailVerifiedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: new Date(),
+    };
+    const restoredUser = { ...deletedUser, deletedAt: null };
+    users = mockUserRepo({
+      findByEmailIncludingDeleted: vi.fn().mockResolvedValue(deletedUser),
+      findByEmail: vi.fn().mockResolvedValue(restoredUser),
+    });
+
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
+    const result = await uc.execute("external-token", { ipAddress: "1.2.3.4" });
+
+    expect(users.restore).toHaveBeenCalledWith("deleted-user");
+    expect(deletions.cancelByUserId).toHaveBeenCalledWith("deleted-user");
+    expect(users.create).not.toHaveBeenCalled();
+    expect(result.user.id).toBe("deleted-user");
+    expect(audit.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "user.restored_on_login" }),
+    );
+  });
+
   it("should audit the login event", async () => {
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
     await uc.execute("token", { ipAddress: "10.0.0.1", userAgent: "test-agent" });
 
     expect(audit.create).toHaveBeenCalledWith(
@@ -185,7 +228,7 @@ describe("LoginUseCase", () => {
         new UnauthorizedError("Invalid token"),
       ),
     });
-    const uc = new LoginUseCase(auth, users, audit, db);
+    const uc = new LoginUseCase(auth, users, audit, db, deletions);
 
     await expect(uc.execute("bad-token", {})).rejects.toThrow(
       UnauthorizedError,

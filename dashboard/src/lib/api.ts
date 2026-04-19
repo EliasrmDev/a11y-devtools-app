@@ -129,7 +129,7 @@ async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> 
 }
 
 // ─── Auth ─────────────────────────────────────────────
-export async function login(clerkToken: string) {
+export async function login(externalToken: string) {
   const data = await apiFetch<{
     accessToken: string;
     refreshToken: string;
@@ -137,7 +137,7 @@ export async function login(clerkToken: string) {
     user: { id: string; email: string; displayName: string | null; role: string };
   }>("/auth/login", {
     method: "POST",
-    body: { token: clerkToken },
+    body: { token: externalToken },
   });
   setTokens({
     accessToken: data.accessToken,
@@ -182,6 +182,17 @@ export function requestDeletion() {
 
 export function cancelDeletion() {
   return apiFetch<{ ok: boolean }>("/api/v1/users/me/deletion", { method: "DELETE" });
+}
+
+export interface ActiveDeletion {
+  id: string;
+  status: string;
+  scheduledFor: string;
+  requestedAt: string;
+}
+
+export function getDeletionStatus() {
+  return apiFetch<{ deletion: ActiveDeletion | null }>("/api/v1/users/me/deletion");
 }
 
 export function exportData() {
@@ -372,6 +383,13 @@ export function adminRunJob(name: string) {
   return apiFetch<{ ok: boolean; job: string }>("/api/v1/admin/jobs/run", {
     method: "POST",
     body: { name },
+  });
+}
+
+export function adminPurgeJobs(keepLast = 7) {
+  return apiFetch<{ ok: boolean; deleted: number; keepLast: number }>("/api/v1/admin/jobs/purge", {
+    method: "POST",
+    body: { keepLast },
   });
 }
 

@@ -111,7 +111,7 @@ export function createApp(env: CloudflareBindings) {
 
   // --- Use Cases ---
   const verifyTokenUC = new VerifyTokenUseCase(authAdapter, revokedTokenRepo);
-  const loginUC = new LoginUseCase(authAdapter, userRepo, auditRepo, db);
+  const loginUC = new LoginUseCase(authAdapter, userRepo, auditRepo, db, deletionRequestRepo);
   const refreshTokenUC = new RefreshTokenUseCase(authAdapter, userRepo, revokedTokenRepo);
   const logoutUC = new LogoutUseCase(revokedTokenRepo, auditRepo);
 
@@ -244,6 +244,7 @@ export function createApp(env: CloudflareBindings) {
       requestDeletion: requestDeletionUC,
       cancelDeletion: cancelDeletionUC,
       exportData: exportDataUC,
+      deletionRepo: deletionRequestRepo,
     }),
   );
 

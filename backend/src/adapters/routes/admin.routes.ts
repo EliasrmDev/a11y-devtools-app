@@ -232,6 +232,17 @@ export function createAdminRoutes(deps: {
     },
   );
 
+  // POST /admin/jobs/purge
+  app.post("/jobs/purge", async (c) => {
+    const body = await c.req.json<{ keepLast?: number }>().catch(() => ({ keepLast: undefined }));
+    const keepLast = Math.max(1, Math.min(50, Number(body?.keepLast ?? 7)));
+    const result = await deps.manageJobs.purgeHistory(keepLast, c.get("userId"), {
+      ipAddress: c.req.header("CF-Connecting-IP"),
+      userAgent: c.req.header("User-Agent"),
+    });
+    return c.json({ ok: true, deleted: result.deleted, keepLast }, 200);
+  });
+
   // ─── Deletion requests ─────────────────────────────────────────────────────
 
   // GET /admin/deletion-requests

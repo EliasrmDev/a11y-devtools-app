@@ -186,7 +186,46 @@ export class JobQueue {
       .orderBy(sql`created_at DESC`)
       .limit(200);
 
-    return rows.map(rowToJob);
+    // Drizzle .select() returns camelCase-keyed objects (schema field names),
+    // not the raw snake_case DB column names used by dequeueNextBatch.
+    return rows.map(drizzleRowToJob);
+  }
+
+  /**
+   * Delete completed and dead jobs, keeping the `keepCount` most recent per
+   * job name. Used by the admin "Purge History" button.
+   */
+  async purgeKeepLast(keepCount = 7): Promise<number> {
+    const result = await this.db.execute(sql`
+      DELETE FROM background_jobs
+      WHERE status IN ('completed', 'dead')
+      AND id NOT IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY name ORDER BY created_at DESC) as rn
+          FROM background_jobs
+          WHERE status IN ('completed', 'dead')
+        ) ranked
+        WHERE rn <= ${keepCount}
+      )
+    `);
+    return result.rowCount ?? 0;
+  }
+
+  /**
+   * Delete completed and dead jobs older than `olderThanDays` days.
+   * Call periodically (e.g. every cron tick) to prevent unbounded table growth.
+   */
+  async purge(olderThanDays = 7): Promise<number> {
+    const cutoff = new Date(Date.now() - olderThanDays * 86_400_000);
+    const result = await this.db
+      .delete(backgroundJobs)
+      .where(
+        and(
+          sql`${backgroundJobs.status} IN ('completed', 'dead')`,
+          sql`${backgroundJobs.completedAt} < ${cutoff}`,
+        ),
+      );
+    return result.rowCount ?? 0;
   }
 
   /**
@@ -221,6 +260,7 @@ export class JobQueue {
 
 // --- helpers ---
 
+/** Maps a raw SQL result row (snake_case keys) to BackgroundJob. Used by dequeueNextBatch. */
 function rowToJob(row: Record<string, unknown>): BackgroundJob {
   return {
     id: row.id as string,
@@ -236,5 +276,24 @@ function rowToJob(row: Record<string, unknown>): BackgroundJob {
     completedAt: row.completed_at ? new Date(row.completed_at as string) : null,
     error: (row.error ?? null) as string | null,
     createdAt: new Date(row.created_at as string),
+  };
+}
+
+/** Maps a Drizzle ORM typed row (camelCase keys) to BackgroundJob. Used by list(). */
+function drizzleRowToJob(row: typeof backgroundJobs.$inferSelect): BackgroundJob {
+  return {
+    id: row.id,
+    name: row.name,
+    payload: row.payload ?? null,
+    status: row.status,
+    priority: row.priority,
+    attempts: row.attempts,
+    maxAttempts: row.maxAttempts,
+    uniqueKey: row.uniqueKey ?? null,
+    runAt: row.runAt,
+    startedAt: row.startedAt ?? null,
+    completedAt: row.completedAt ?? null,
+    error: row.error ?? null,
+    createdAt: row.createdAt,
   };
 }

@@ -18,7 +18,9 @@ export interface DeletionRequest {
 export interface DeletionRequestCreator {
   create(userId: string, scheduledFor: Date): Promise<void>;
   findPendingByUser(userId: string): Promise<{ id: string } | null>;
+  findActiveByUser(userId: string): Promise<Pick<DeletionRequest, 'id' | 'status' | 'scheduledFor' | 'requestedAt'> | null>;
   cancel(id: string): Promise<void>;
+  cancelByUserId(userId: string): Promise<void>;
   listAll(params: { page: number; limit: number; status?: string }): Promise<{ data: DeletionRequest[]; total: number }>;
   findById(id: string): Promise<DeletionRequest | null>;
   forceScheduleNow(id: string): Promise<void>;
