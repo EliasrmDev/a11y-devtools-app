@@ -25,7 +25,7 @@ export class TestConnectionUseCase {
   async execute(
     userId: string,
     connectionId: string,
-    meta: { ipAddress?: string; userAgent?: string },
+    meta: { ipAddress?: string; userAgent?: string; modelId?: string },
   ): Promise<TestConnectionResult> {
     const startTime = Date.now();
 
@@ -79,14 +79,14 @@ export class TestConnectionUseCase {
     // 5. Test connection with a minimal request
     const client = createAiClient(connection.providerType as ProviderType);
     const testModels: Record<string, string> = {
-      openai: "gpt-4o-mini",
+      openai: "gpt-4.1-mini",
       anthropic: "claude-haiku-4-5-20251001",
       openrouter: "google/gemini-2.5-flash",
       gemini: "gemini-2.5-flash",
       groq: "qwen/qwen3-32b",
       custom: "gpt-4o-mini",
     };
-    const testModel = testModels[connection.providerType] ?? "gpt-4o-mini";
+    const testModel = meta.modelId ?? testModels[connection.providerType] ?? "gpt-4o-mini";
 
     try {
       await client.complete({

@@ -118,6 +118,9 @@ export class ProviderRepositoryImpl implements ProviderRepository {
         modelId: data.modelId,
         displayName: data.displayName,
         isAvailable: data.isEnabled,
+        maxTokens: data.maxTokens ?? null,
+        supportsStreaming: data.supportsStreaming ?? true,
+        supportsVision: data.supportsVision ?? false,
       })
       .returning({ id: providerModels.id });
 
@@ -172,12 +175,18 @@ export class ProviderRepositoryImpl implements ProviderRepository {
             modelId: m.modelId,
             displayName: m.displayName,
             isAvailable: m.isEnabled,
+            maxTokens: m.maxTokens ?? null,
+            supportsStreaming: m.supportsStreaming ?? true,
+            supportsVision: m.supportsVision ?? false,
           })),
         )
         .onConflictDoUpdate({
           target: [providerModels.providerType, providerModels.modelId],
           set: {
             displayName: sql`excluded.display_name`,
+            maxTokens: sql`excluded.max_tokens`,
+            supportsStreaming: sql`excluded.supports_streaming`,
+            supportsVision: sql`excluded.supports_vision`,
             updatedAt: new Date(),
           },
         });
@@ -212,6 +221,11 @@ export class ProviderRepositoryImpl implements ProviderRepository {
       modelId: row.modelId,
       displayName: row.displayName,
       isEnabled: row.isAvailable,
+      maxTokens: row.maxTokens,
+      supportsStreaming: row.supportsStreaming,
+      supportsVision: row.supportsVision,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 

@@ -37,7 +37,7 @@ export class OpenAiResponsesClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Provider returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Provider returned ${response.status}: ${errorBody}`,
       );
     }
 
@@ -72,7 +72,7 @@ export class OpenAiResponsesClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Provider returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Provider returned ${response.status}: ${errorBody}`,
       );
     }
 

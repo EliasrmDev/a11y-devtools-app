@@ -1,0 +1,1 @@
+ALTER TABLE "provider_models" ADD COLUMN IF NOT EXISTS "supports_vision" boolean DEFAULT false NOT NULL;

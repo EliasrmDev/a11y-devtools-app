@@ -240,10 +240,27 @@ export function deleteConnection(id: string) {
   });
 }
 
-export function testConnection(id: string) {
+export function testConnection(id: string, modelId?: string) {
   return apiFetch<{ success: boolean; latencyMs?: number; error?: string }>(
     `/api/v1/providers/connections/${encodeURIComponent(id)}/test`,
-    { method: "POST" },
+    { method: "POST", body: modelId ? { modelId } : {} },
+  );
+}
+
+export interface ConnectionModel {
+  id: string;
+  name: string;
+  provider: string;
+  contextWindow: number | null;
+  maxOutputTokens: number | null;
+  supportsStreaming: boolean;
+  supportsVision: boolean;
+  pricing: { inputPer1M: number | null; outputPer1M: number | null } | null;
+}
+
+export function listConnectionModels(connectionId: string) {
+  return apiFetch<{ data: ConnectionModel[] }>(
+    `/api/v1/providers/connections/${encodeURIComponent(connectionId)}/models`,
   );
 }
 
@@ -254,6 +271,11 @@ export interface ProviderModel {
   displayName: string;
   isEnabled: boolean;
   capabilities?: string[];
+  maxTokens?: number | null;
+  supportsStreaming?: boolean;
+  supportsVision?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export function listModels(providerType?: string, enabledOnly = true) {

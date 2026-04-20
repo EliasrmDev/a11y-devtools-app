@@ -26,6 +26,11 @@ export class ManageModelsUseCase {
       modelId: string;
       displayName: string;
       isEnabled: boolean;
+      maxTokens: number | null;
+      supportsStreaming: boolean;
+      supportsVision: boolean;
+      createdAt: Date;
+      updatedAt: Date;
     }>
   > {
     return this.providers.listGlobalModels();
@@ -170,6 +175,9 @@ export class ManageModelsUseCase {
       modelId: m.id,
       displayName: m.name,
       isEnabled: false,
+      maxTokens: m.maxOutputTokens ?? m.contextWindow ?? null,
+      supportsStreaming: m.supportsStreaming,
+      supportsVision: m.supportsVision,
     }));
 
     const result = await this.providers.bulkUpsertGlobalModels(globalModels);

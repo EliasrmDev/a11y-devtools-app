@@ -32,7 +32,7 @@ export class GeminiClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Gemini returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Gemini returned ${response.status}: ${errorBody}`,
       );
     }
 
@@ -71,7 +71,7 @@ export class GeminiClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Gemini returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Gemini returned ${response.status}: ${errorBody}`,
       );
     }
 

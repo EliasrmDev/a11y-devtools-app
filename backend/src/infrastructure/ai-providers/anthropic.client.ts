@@ -30,7 +30,7 @@ export class AnthropicClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Anthropic returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Anthropic returned ${response.status}: ${errorBody}`,
       );
     }
 
@@ -70,7 +70,7 @@ export class AnthropicClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Anthropic returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Anthropic returned ${response.status}: ${errorBody}`,
       );
     }
 

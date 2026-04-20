@@ -19,6 +19,7 @@ export const providerModels = pgTable(
     isAvailable: boolean("is_available").notNull().default(true),
     maxTokens: integer("max_tokens"),
     supportsStreaming: boolean("supports_streaming").notNull().default(true),
+    supportsVision: boolean("supports_vision").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

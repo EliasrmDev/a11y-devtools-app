@@ -30,7 +30,7 @@ export class OpenAiCompatibleClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Provider returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Provider returned ${response.status}: ${errorBody}`,
       );
     }
 
@@ -65,7 +65,7 @@ export class OpenAiCompatibleClient implements AiClientPort {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
         "AI_PROVIDER_ERROR",
-        `Provider returned ${response.status}: ${errorBody.slice(0, 200)}`,
+        `Provider returned ${response.status}: ${errorBody}`,
       );
     }
 
@@ -106,7 +106,7 @@ export class OpenAiCompatibleClient implements AiClientPort {
       stream,
     };
 
-    if (params.maxTokens !== undefined) body.max_tokens = params.maxTokens;
+    if (params.maxTokens !== undefined) body.max_tokens = Math.max(16, params.maxTokens);
     if (params.temperature !== undefined) body.temperature = params.temperature;
 
     if (stream) {

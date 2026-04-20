@@ -25,6 +25,11 @@ export interface GlobalModel {
   modelId: string;
   displayName: string;
   isEnabled: boolean;
+  maxTokens: number | null;
+  supportsStreaming: boolean;
+  supportsVision: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateGlobalModelData {
@@ -32,6 +37,9 @@ export interface CreateGlobalModelData {
   modelId: string;
   displayName: string;
   isEnabled: boolean;
+  maxTokens?: number | null;
+  supportsStreaming?: boolean;
+  supportsVision?: boolean;
 }
 
 export interface CreateProviderData {

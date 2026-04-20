@@ -79,12 +79,14 @@ export function createProviderRoutes(deps: {
   // POST /providers/connections/:id/test
   app.post("/connections/:id/test", async (c) => {
     const id = c.req.param("id");
+    const body = await c.req.json<{ modelId?: string }>().catch(() => ({} as { modelId?: string }));
     const result = await deps.testConnection.execute(
       c.get("userId"),
       id,
       {
         ipAddress: c.req.header("CF-Connecting-IP"),
         userAgent: c.req.header("User-Agent"),
+        modelId: body.modelId,
       },
     );
     return c.json(result, 200);

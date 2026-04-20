@@ -30,6 +30,9 @@ import {
   RefreshCw,
   Check,
   AlertCircle,
+  ArrowUpDown,
+  Zap,
+  Clock,
 } from "lucide-react";
 
 const PROVIDERS = [
@@ -55,6 +58,7 @@ export default function AdminModelsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("enabled-first");
   const [syncStatus, setSyncStatus] = useState<Record<string, SyncStatus>>({});
 
   const [form, setForm] = useState({
@@ -80,7 +84,7 @@ export default function AdminModelsPage() {
     refresh();
   }, [refresh]);
 
-  // Filtered models based on active tab and search
+  // Filtered + sorted models
   const filteredModels = useMemo(() => {
     let result = models;
     if (activeTab !== "all") {
@@ -94,8 +98,34 @@ export default function AdminModelsPage() {
           m.modelId.toLowerCase().includes(q),
       );
     }
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "name-asc":
+          return a.displayName.localeCompare(b.displayName);
+        case "name-desc":
+          return b.displayName.localeCompare(a.displayName);
+        case "provider":
+          return a.providerType.localeCompare(b.providerType) || a.displayName.localeCompare(b.displayName);
+        case "model-id":
+          return a.modelId.localeCompare(b.modelId);
+        case "enabled-first":
+          return (b.isEnabled ? 1 : 0) - (a.isEnabled ? 1 : 0) || a.displayName.localeCompare(b.displayName);
+        case "disabled-first":
+          return (a.isEnabled ? 1 : 0) - (b.isEnabled ? 1 : 0) || a.displayName.localeCompare(b.displayName);
+        case "newest":
+          return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+        case "oldest":
+          return new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime();
+        case "recently-updated":
+          return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+        case "max-tokens":
+          return (b.maxTokens ?? 0) - (a.maxTokens ?? 0);
+        default:
+          return 0;
+      }
+    });
     return result;
-  }, [models, activeTab, search]);
+  }, [models, activeTab, search, sortBy]);
 
   // Stats per provider
   const providerStats = useMemo(() => {
@@ -304,15 +334,36 @@ export default function AdminModelsPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sub" />
-        <Input
-          placeholder="Search models..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + Sort */}
+      <div className="mb-4 flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sub" />
+          <Input
+            placeholder="Search models..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="relative flex items-center">
+          <ArrowUpDown className="pointer-events-none absolute left-3 h-4 w-4 text-sub" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="h-9 rounded-[6px] border border-border-md bg-surface-2 pl-9 pr-3 text-sm text-text appearance-none cursor-pointer"
+          >
+            <option value="name-asc">Name A→Z</option>
+            <option value="name-desc">Name Z→A</option>
+            <option value="provider">Provider</option>
+            <option value="model-id">Model ID</option>
+            <option value="enabled-first">Enabled first</option>
+            <option value="disabled-first">Disabled first</option>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="recently-updated">Recently updated</option>
+            <option value="max-tokens">Max tokens ↓</option>
+          </select>
+        </div>
       </div>
 
       {/* Model list */}
@@ -325,18 +376,62 @@ export default function AdminModelsPage() {
           {filteredModels.map((model) => (
             <Card key={model.id}>
               <CardContent className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-[6px] bg-surface-3 text-xs font-bold text-primary uppercase">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-surface-3 text-xs font-bold text-primary uppercase">
                     {model.providerType.slice(0, 2)}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-text">{model.displayName}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-text truncate">{model.displayName}</p>
                     <p className="text-xs text-sub">
                       {model.providerType} / {model.modelId}
                     </p>
+                    {/* Metadata row */}
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      {/* Text badge — all stored models process text */}
+                      <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary-light">
+                        Text
+                      </span>
+                      {/* Vision badge — only for multimodal models */}
+                      {model.supportsVision && (
+                        <span className="inline-flex items-center gap-1 rounded-[4px] bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400">
+                          Vision
+                        </span>
+                      )}
+                      {model.maxTokens != null && (
+                        <span className="flex items-center gap-1 text-[11px] text-sub">
+                          <Zap className="h-3 w-3" />
+                          {model.maxTokens >= 1000
+                            ? `${(model.maxTokens / 1000).toFixed(0)}k tokens`
+                            : `${model.maxTokens} tokens`}
+                        </span>
+                      )}
+                      {model.supportsStreaming === true && (
+                        <span className="flex items-center gap-1 text-[11px] text-pass">
+                          <span className="h-1.5 w-1.5 rounded-full bg-pass" />
+                          Streaming
+                        </span>
+                      )}
+                      {model.supportsStreaming === false && (
+                        <span className="flex items-center gap-1 text-[11px] text-sub">
+                          <span className="h-1.5 w-1.5 rounded-full bg-border-md" />
+                          No streaming
+                        </span>
+                      )}
+                      {model.capabilities && model.capabilities.length > 0 && (
+                        <span className="text-[11px] text-sub">
+                          {model.capabilities.join(" · ")}
+                        </span>
+                      )}
+                      {model.createdAt && (
+                        <span className="flex items-center gap-1 text-[11px] text-sub/70">
+                          <Clock className="h-3 w-3" />
+                          {new Date(model.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1">
                   <Badge variant={model.isEnabled ? "success" : "outline"}>
                     {model.isEnabled ? "Enabled" : "Disabled"}
                   </Badge>
