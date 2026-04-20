@@ -1,5 +1,5 @@
 import type { ProviderModelsClient, NormalizedModel } from "../../../domain/ports/provider-models.port.js";
-import { safeFetch } from "./safe-fetch.js";
+import { fetchJsonOrThrow } from "./safe-fetch.js";
 
 interface GeminiModel {
   name: string;
@@ -17,11 +17,11 @@ export class GeminiModelsClient implements ProviderModelsClient {
   readonly provider = "gemini" as const;
 
   async fetchModels(apiKey: string): Promise<NormalizedModel[]> {
-    const data = await safeFetch<GeminiListResponse>(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+    const data = await fetchJsonOrThrow<GeminiListResponse>(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
       {},
     );
-    if (!data?.models) return [];
+    if (!data.models) return [];
 
     return data.models
       .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))

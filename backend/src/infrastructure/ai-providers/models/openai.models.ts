@@ -1,5 +1,5 @@
 import type { ProviderModelsClient, NormalizedModel } from "../../../domain/ports/provider-models.port.js";
-import { safeFetch } from "./safe-fetch.js";
+import { fetchJsonOrThrow } from "./safe-fetch.js";
 
 interface OpenAIModel {
   id: string;
@@ -15,14 +15,13 @@ export class OpenAIModelsClient implements ProviderModelsClient {
   readonly provider = "openai" as const;
 
   async fetchModels(apiKey: string): Promise<NormalizedModel[]> {
-    const data = await safeFetch<OpenAIListResponse>(
+    const data = await fetchJsonOrThrow<OpenAIListResponse>(
       "https://api.openai.com/v1/models",
       { headers: { Authorization: `Bearer ${apiKey}` } },
     );
-    if (!data?.data) return [];
 
-    return data.data
-      .filter((m) => m.id.startsWith("gpt-") || m.id.startsWith("o"))
+    return (data.data ?? [])
+      .filter((m) => m.id.startsWith("gpt-") || m.id.startsWith("chatgpt-") || m.id.startsWith("o"))
       .map((m) => ({
         id: m.id,
         name: m.id,

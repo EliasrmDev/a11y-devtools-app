@@ -1,0 +1,15 @@
+{
+  "name": "a11y-devtools",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "dashboard"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=backend & npm run dev --workspace=dashboard",
+    "dev:api": "npm run dev --workspace=backend",
+    "dev:app": "npm run dev --workspace=dashboard",
+    "deploy:api": "npm run deploy --workspace=backend -- --env=",
+    "deploy:app": "npm run deploy --workspace=dashboard -- --env="
+  }
+}

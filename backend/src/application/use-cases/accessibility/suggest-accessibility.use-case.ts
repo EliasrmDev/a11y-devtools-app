@@ -10,7 +10,7 @@ import {
   PROMPT_VERSION,
 } from "../../../infrastructure/ai-providers/accessibility-prompt.js";
 import { NotFoundError, DomainError } from "../../../domain/errors/index.js";
-import type { ProviderType, AiBinding } from "../../../shared/types.js";
+import type { ProviderType } from "../../../shared/types.js";
 import type {
   AccessibilitySuggestInput,
   AccessibilitySuggestOutput,
@@ -69,7 +69,6 @@ export class SuggestAccessibilityUseCase {
     private readonly crypto: CryptoPort,
     private readonly usage: UsageRepository,
     private readonly audit: AuditRepository,
-    private readonly ai?: AiBinding,
   ) {}
 
   async execute(
@@ -126,7 +125,7 @@ export class SuggestAccessibilityUseCase {
 
     // 5. Build injection-safe prompt
     const messages = buildAccessibilityPrompt(input);
-    const client = createAiClient(connection.providerType as ProviderType, this.ai);
+    const client = createAiClient(connection.providerType as ProviderType);
 
     // 6. AI call with retry on transient errors
     const result = await withRetry(

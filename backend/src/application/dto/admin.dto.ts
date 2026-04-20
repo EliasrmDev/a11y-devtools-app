@@ -25,6 +25,15 @@ export const manageModelInputSchema = z.object({
   supportsStreaming: z.boolean().default(true),
 });
 
+export const syncModelsInputSchema = z.object({
+  providerType: z.enum(["openai", "anthropic", "openrouter", "gemini", "groq"]),
+});
+
+export const bulkToggleModelsInputSchema = z.object({
+  providerType: z.enum(["openai", "anthropic", "openrouter", "gemini", "groq"]),
+  enabled: z.boolean(),
+});
+
 export const blockUserSchema = z.object({
   reason: z.string().min(1).max(500),
 });

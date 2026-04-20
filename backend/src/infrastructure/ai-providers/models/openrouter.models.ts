@@ -1,5 +1,5 @@
 import type { ProviderModelsClient, NormalizedModel } from "../../../domain/ports/provider-models.port.js";
-import { safeFetch } from "./safe-fetch.js";
+import { fetchJsonOrThrow } from "./safe-fetch.js";
 
 interface OpenRouterModel {
   id: string;
@@ -7,6 +7,7 @@ interface OpenRouterModel {
   context_length?: number;
   pricing?: { prompt?: string; completion?: string };
   top_provider?: { max_completion_tokens?: number };
+  architecture?: { modality?: string };
 }
 
 interface OpenRouterListResponse {
@@ -17,13 +18,22 @@ export class OpenRouterModelsClient implements ProviderModelsClient {
   readonly provider = "openrouter" as const;
 
   async fetchModels(apiKey: string): Promise<NormalizedModel[]> {
-    const data = await safeFetch<OpenRouterListResponse>(
+    const headers: Record<string, string> = {};
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+    const data = await fetchJsonOrThrow<OpenRouterListResponse>(
       "https://openrouter.ai/api/v1/models",
-      { headers: { Authorization: `Bearer ${apiKey}` } },
+      { headers },
     );
-    if (!data?.data) return [];
 
-    return data.data.map((m) => ({
+    // Only include models that output text (e.g. "text->text", "text+image->text")
+    const textModels = (data.data ?? []).filter((m) => {
+      const modality = m.architecture?.modality;
+      return !modality || modality.includes("->text");
+    });
+
+    return textModels.map((m) => ({
       id: m.id,
       name: m.name || m.id,
       provider: this.provider,

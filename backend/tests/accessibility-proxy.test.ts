@@ -50,6 +50,7 @@ const VALID_AI_RESPONSE = JSON.stringify({
 const VALID_INPUT: AccessibilitySuggestInput = {
   connectionId: "conn-1",
   model: "gpt-4o-mini",
+  lang: "en",
   ruleId: "image-alt",
   help: "Images must have alternate text",
   description: "Ensures <img> elements have alternate text.",

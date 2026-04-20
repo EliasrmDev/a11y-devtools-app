@@ -119,19 +119,18 @@ export function createApp(env: CloudflareBindings) {
   const listConnectionsUC = new ListConnectionsUseCase(providerRepo);
   const updateConnectionUC = new UpdateConnectionUseCase(providerRepo, secretRepo, crypto, auditRepo);
   const deleteConnectionUC = new DeleteConnectionUseCase(providerRepo, auditRepo);
-  const testConnectionUC = new TestConnectionUseCase(providerRepo, secretRepo, crypto, auditRepo, env.AI);
+  const testConnectionUC = new TestConnectionUseCase(providerRepo, secretRepo, crypto, auditRepo);
   const listModelsUC = new ListModelsUseCase(providerRepo);
   const fetchProviderModelsUC = new FetchProviderModelsUseCase(providerRepo, secretRepo, crypto, modelsCacheRepo, memoryModelsCache);
   const fetchAllProviderModelsUC = new FetchAllProviderModelsUseCase(providerRepo, secretRepo, crypto, modelsCacheRepo, memoryModelsCache);
 
-  const aiProxyUC = new AiProxyUseCase(providerRepo, secretRepo, crypto, usageRepo, env.AI);
+  const aiProxyUC = new AiProxyUseCase(providerRepo, secretRepo, crypto, usageRepo);
   const suggestAccessibilityUC = new SuggestAccessibilityUseCase(
     providerRepo,
     secretRepo,
     crypto,
     usageRepo,
     auditRepo,
-    env.AI,
   );
 
   const getProfileUC = new GetProfileUseCase(userRepo);
@@ -141,7 +140,13 @@ export function createApp(env: CloudflareBindings) {
   const exportDataUC = new ExportDataUseCase(userRepo, providerRepo, usageRepo, auditRepo);
 
   const listUsersUC = new ListUsersUseCase(userRepo);
-  const manageModelsUC = new ManageModelsUseCase(providerRepo, auditRepo);
+  const manageModelsUC = new ManageModelsUseCase(providerRepo, auditRepo, {
+    openai: config.ADMIN_OPENAI_API_KEY,
+    anthropic: config.ADMIN_ANTHROPIC_API_KEY,
+    groq: config.ADMIN_GROQ_API_KEY,
+    gemini: config.ADMIN_GEMINI_API_KEY,
+    openrouter: config.ADMIN_OPENROUTER_API_KEY,
+  });
   const viewAuditLogUC = new ViewAuditLogUseCase(auditRepo);
   const blockUserUC = new BlockUserUseCase(userRepo, auditRepo);
   const getAdminStatsUC = new GetAdminStatsUseCase(db);

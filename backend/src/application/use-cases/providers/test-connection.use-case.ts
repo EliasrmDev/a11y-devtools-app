@@ -6,7 +6,7 @@ import { createAiClient } from "../../../infrastructure/ai-providers/client.fact
 import { validateProviderUrl } from "../../../infrastructure/ai-providers/ssrf-guard.js";
 import { NotFoundError, DomainError } from "../../../domain/errors/index.js";
 import { PROXY } from "../../../shared/constants.js";
-import type { ProviderType, AiBinding } from "../../../shared/types.js";
+import type { ProviderType } from "../../../shared/types.js";
 
 export interface TestConnectionResult {
   success: boolean;
@@ -20,7 +20,6 @@ export class TestConnectionUseCase {
     private readonly secrets: SecretRepository,
     private readonly crypto: CryptoPort,
     private readonly audit: AuditRepository,
-    private readonly ai?: AiBinding,
   ) {}
 
   async execute(
@@ -78,11 +77,13 @@ export class TestConnectionUseCase {
     }
 
     // 5. Test connection with a minimal request
-    const client = createAiClient(connection.providerType as ProviderType, this.ai);
+    const client = createAiClient(connection.providerType as ProviderType);
     const testModels: Record<string, string> = {
       openai: "gpt-4o-mini",
-      anthropic: "claude-3-5-haiku-20241022",
-      openrouter: "openai/gpt-4o-mini",
+      anthropic: "claude-haiku-4-5-20251001",
+      openrouter: "google/gemini-2.5-flash",
+      gemini: "gemini-2.5-flash",
+      groq: "qwen/qwen3-32b",
       custom: "gpt-4o-mini",
     };
     const testModel = testModels[connection.providerType] ?? "gpt-4o-mini";

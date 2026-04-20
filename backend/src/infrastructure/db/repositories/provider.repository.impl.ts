@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { Database } from "../client.js";
 import { aiProviderConnections } from "../schema/ai-provider-connections.js";
 import { providerModels } from "../schema/provider-models.js";
@@ -141,6 +141,66 @@ export class ProviderRepositoryImpl implements ProviderRepository {
     await this.db
       .delete(providerModels)
       .where(eq(providerModels.id, id));
+  }
+
+  async bulkUpsertGlobalModels(
+    models: CreateGlobalModelData[],
+  ): Promise<{ added: number; updated: number }> {
+    if (models.length === 0) return { added: 0, updated: 0 };
+
+    // Get existing model IDs for this batch to determine added vs updated
+    const existingRows = await this.db
+      .select({ providerType: providerModels.providerType, modelId: providerModels.modelId })
+      .from(providerModels);
+    const existingKeys = new Set(
+      existingRows.map((r) => `${r.providerType}:${r.modelId}`),
+    );
+
+    let added = 0;
+    let updated = 0;
+
+    // Process in batches of 50 to avoid oversized queries
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < models.length; i += BATCH_SIZE) {
+      const batch = models.slice(i, i + BATCH_SIZE);
+
+      await this.db
+        .insert(providerModels)
+        .values(
+          batch.map((m) => ({
+            providerType: m.providerType,
+            modelId: m.modelId,
+            displayName: m.displayName,
+            isAvailable: m.isEnabled,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [providerModels.providerType, providerModels.modelId],
+          set: {
+            displayName: sql`excluded.display_name`,
+            updatedAt: new Date(),
+          },
+        });
+
+      for (const m of batch) {
+        if (existingKeys.has(`${m.providerType}:${m.modelId}`)) {
+          updated++;
+        } else {
+          added++;
+        }
+      }
+    }
+
+    return { added, updated };
+  }
+
+  async bulkToggleByProvider(providerType: string, enabled: boolean): Promise<number> {
+    const result = await this.db
+      .update(providerModels)
+      .set({ isAvailable: enabled, updatedAt: new Date() })
+      .where(eq(providerModels.providerType, providerType))
+      .returning({ id: providerModels.id });
+    return result.length;
   }
 
   private toGlobalModel(

@@ -19,6 +19,13 @@ export const envSchema = z.object({
   ENVIRONMENT: z
     .enum(["development", "staging", "production"])
     .default("production"),
+
+  // Admin API keys for fetching provider model catalogs (optional)
+  ADMIN_OPENAI_API_KEY: z.string().optional(),
+  ADMIN_ANTHROPIC_API_KEY: z.string().optional(),
+  ADMIN_GROQ_API_KEY: z.string().optional(),
+  ADMIN_GEMINI_API_KEY: z.string().optional(),
+  ADMIN_OPENROUTER_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

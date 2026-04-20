@@ -43,13 +43,13 @@ export class FetchProviderModelsUseCase {
     // 1. Check in-memory cache
     const cacheKey = `${userId}:${connectionId}`;
     const memCached = this.memCache.get(cacheKey);
-    if (memCached) return memCached;
+    if (memCached) return this.filterByAdminEnabledModels(memCached, provider);
 
     // 2. Check DB cache (keyed by provider type — shared across users)
     const dbCached = await this.dbCache.get(provider, MODEL_CACHE.DB_TTL_MS);
     if (dbCached) {
       this.memCache.set(cacheKey, dbCached);
-      return dbCached;
+      return this.filterByAdminEnabledModels(dbCached, provider);
     }
 
     // 3. Fetch live from provider API
@@ -64,12 +64,34 @@ export class FetchProviderModelsUseCase {
       throw new DomainError("UNSUPPORTED_PROVIDER", `No model client for ${provider}`);
     }
 
-    const models = await client.fetchModels(apiKey);
+    let models: NormalizedModel[];
+    try {
+      models = await client.fetchModels(apiKey);
+    } catch (err) {
+      throw new DomainError(
+        "PROVIDER_FETCH_FAILED",
+        `Failed to fetch models from ${provider}: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
+    }
 
     // 4. Populate both caches
     await this.dbCache.set(provider, models);
     this.memCache.set(cacheKey, models);
 
-    return models;
+    return this.filterByAdminEnabledModels(models, provider);
+  }
+
+  private async filterByAdminEnabledModels(
+    models: NormalizedModel[],
+    provider: ProviderType,
+  ): Promise<NormalizedModel[]> {
+    const globalModels = await this.providers.listGlobalModels();
+    const enabledForProvider = globalModels.filter(
+      (m) => m.providerType === provider && m.isEnabled,
+    );
+    // If admin hasn't synced any models for this provider yet, return all.
+    if (enabledForProvider.length === 0) return models;
+    const enabledIds = new Set(enabledForProvider.map((m) => m.modelId));
+    return models.filter((m) => enabledIds.has(m.id));
   }
 }

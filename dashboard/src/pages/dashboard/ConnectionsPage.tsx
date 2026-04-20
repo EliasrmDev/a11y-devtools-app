@@ -45,6 +45,8 @@ const API_KEY_LINKS: Record<string, { label: string; url: string }> = {
   gemini:     { label: "Get free API key", url: "https://aistudio.google.com/app/apikey" },
   groq:       { label: "Get free API key", url: "https://console.groq.com/keys" },
   openrouter: { label: "Get API key", url: "https://openrouter.ai/keys" },
+  openai:    { label: "Get API key", url: "https://platform.openai.com/api-keys" },
+  anthropic: { label: "Get API key", url: "https://platform.claude.com/settings/keys" },
 };
 
 export default function ConnectionsPage() {

@@ -338,6 +338,20 @@ export function adminDeleteModel(id: string) {
   });
 }
 
+export function adminSyncModels(providerType: string) {
+  return apiFetch<{ added: number; updated: number; total: number }>(
+    "/api/v1/admin/models/sync",
+    { method: "POST", body: { providerType } },
+  );
+}
+
+export function adminBulkToggleModels(providerType: string, enabled: boolean) {
+  return apiFetch<{ updated: number }>(
+    "/api/v1/admin/models/bulk-toggle",
+    { method: "PATCH", body: { providerType, enabled } },
+  );
+}
+
 export interface AuditEntry {
   id: string;
   userId: string;

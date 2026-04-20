@@ -5,6 +5,8 @@ import {
   listUsersQuerySchema,
   auditLogQuerySchema,
   manageModelInputSchema,
+  syncModelsInputSchema,
+  bulkToggleModelsInputSchema,
   blockUserSchema,
   listJobsQuerySchema,
   runJobSchema,
@@ -158,6 +160,25 @@ export function createAdminRoutes(deps: {
     },
   );
 
+  // PATCH /admin/models/bulk-toggle — enable or disable all models for a provider
+  app.patch(
+    "/models/bulk-toggle",
+    zValidator("json", bulkToggleModelsInputSchema),
+    async (c) => {
+      const { providerType, enabled } = c.req.valid("json");
+      const result = await deps.manageModels.bulkToggleByProvider(
+        providerType,
+        enabled,
+        c.get("userId"),
+        {
+          ipAddress: c.req.header("CF-Connecting-IP"),
+          userAgent: c.req.header("User-Agent"),
+        },
+      );
+      return c.json(result, 200);
+    },
+  );
+
   // PATCH /admin/models/:id
   app.patch("/models/:id", async (c) => {
     const { enabled } = await c.req.json<{ enabled: boolean }>();
@@ -181,6 +202,24 @@ export function createAdminRoutes(deps: {
     });
     return c.json({ ok: true }, 200);
   });
+
+  // POST /admin/models/sync — fetch models from provider API and upsert
+  app.post(
+    "/models/sync",
+    zValidator("json", syncModelsInputSchema),
+    async (c) => {
+      const { providerType } = c.req.valid("json");
+      const result = await deps.manageModels.syncModelsFromProvider(
+        providerType as any,
+        c.get("userId"),
+        {
+          ipAddress: c.req.header("CF-Connecting-IP"),
+          userAgent: c.req.header("User-Agent"),
+        },
+      );
+      return c.json(result, 200);
+    },
+  );
 
   // ─── Audit ─────────────────────────────────────────────────────────────────
 
