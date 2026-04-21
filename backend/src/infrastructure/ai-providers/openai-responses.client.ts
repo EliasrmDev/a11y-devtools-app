@@ -36,7 +36,7 @@ export class OpenAiResponsesClient implements AiClientPort {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
-        "AI_PROVIDER_ERROR",
+        response.status >= 500 ? "PROVIDER_ERROR_5XX" : "AI_PROVIDER_ERROR",
         `Provider returned ${response.status}: ${errorBody}`,
       );
     }
@@ -71,7 +71,7 @@ export class OpenAiResponsesClient implements AiClientPort {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "Unknown error");
       throw new DomainError(
-        "AI_PROVIDER_ERROR",
+        response.status >= 500 ? "PROVIDER_ERROR_5XX" : "AI_PROVIDER_ERROR",
         `Provider returned ${response.status}: ${errorBody}`,
       );
     }

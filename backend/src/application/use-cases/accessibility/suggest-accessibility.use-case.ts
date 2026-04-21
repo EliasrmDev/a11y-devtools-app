@@ -147,7 +147,16 @@ export class SuggestAccessibilityUseCase {
     // 7. Parse + validate structured AI response
     let parsed: z.infer<typeof aiResponseSchema>;
     try {
-      const rawJson = JSON.parse(result.content.trim()) as unknown;
+      let content = result.content.trim();
+      // Strip markdown code fences (```json ... ``` or ``` ... ```)
+      const fenced = content.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+      if (fenced) content = fenced[1].trim();
+      // If there is still surrounding text, extract the first JSON object
+      if (!content.startsWith("{")) {
+        const objectMatch = content.match(/\{[\s\S]*\}/);
+        if (objectMatch) content = objectMatch[0];
+      }
+      const rawJson = JSON.parse(content) as unknown;
       parsed = aiResponseSchema.parse(rawJson);
     } catch {
       throw new DomainError(
