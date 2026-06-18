@@ -93,12 +93,33 @@ export class SuggestAccessibilityUseCase {
       );
     }
 
-    // 2. Decrypt API key
+    // 2. Validate model is available
+    const globalModels = await this.providers.listGlobalModels();
+    const providerModels = globalModels.filter(
+      (m) => m.providerType === connection.providerType,
+    );
+    if (providerModels.length > 0) {
+      const model = providerModels.find((m) => m.modelId === input.model);
+      if (!model) {
+        throw new DomainError(
+          "MODEL_NOT_FOUND",
+          `Model "${input.model}" is not available for ${connection.providerType}`,
+        );
+      }
+      if (!model.isEnabled) {
+        throw new DomainError(
+          "MODEL_DISABLED",
+          `Model "${input.model}" is currently disabled`,
+        );
+      }
+    }
+
+    // 3. Decrypt API key
     const secret = await this.secrets.findByConnectionId(connection.id);
     if (!secret) throw new NotFoundError("Provider secret");
     const apiKey = this.crypto.decrypt(secret);
 
-    // 3. Decrypt custom headers if present
+    // 4. Decrypt custom headers if present
     let customHeaders: Record<string, string> | undefined;
     if (connection.customHeadersEnc) {
       const env = JSON.parse(connection.customHeadersEnc);
@@ -113,7 +134,7 @@ export class SuggestAccessibilityUseCase {
       customHeaders = JSON.parse(headersJson) as Record<string, string>;
     }
 
-    // 4. Resolve base URL
+    // 5. Resolve base URL
     const baseUrl =
       connection.baseUrl ??
       PROXY.KNOWN_PROVIDERS[
@@ -123,11 +144,11 @@ export class SuggestAccessibilityUseCase {
       throw new DomainError("NO_BASE_URL", "No base URL configured for provider");
     }
 
-    // 5. Build injection-safe prompt
+    // 6. Build injection-safe prompt
     const messages = buildAccessibilityPrompt(input);
     const client = createAiClient(connection.providerType as ProviderType);
 
-    // 6. AI call with retry on transient errors
+    // 7. AI call with retry on transient errors
     const result = await withRetry(
       () =>
         client.complete({
@@ -144,7 +165,7 @@ export class SuggestAccessibilityUseCase {
 
     const latencyMs = Date.now() - startTime;
 
-    // 7. Parse + validate structured AI response
+    // 8. Parse + validate structured AI response
     let parsed: z.infer<typeof aiResponseSchema>;
     try {
       let content = result.content.trim();
@@ -165,7 +186,7 @@ export class SuggestAccessibilityUseCase {
       );
     }
 
-    // 8. Record usage — non-blocking; failures must not fail the request
+    // 9. Record usage — non-blocking; failures must not fail the request
     this.usage
       .create({
         userId,
@@ -181,7 +202,7 @@ export class SuggestAccessibilityUseCase {
         /* intentionally swallowed */
       });
 
-    // 9. Audit — no AI-generated content recorded, only metadata
+    // 10. Audit — no AI-generated content recorded, only metadata
     this.audit
       .create({
         userId,

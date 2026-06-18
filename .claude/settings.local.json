@@ -3,7 +3,10 @@
     "allow": [
       "Bash(xargs grep *)",
       "Bash(git *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js|sql|drizzle\\)$\")",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

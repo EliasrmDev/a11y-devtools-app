@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, notInArray } from "drizzle-orm";
 import type { Database } from "../client.js";
 import { aiProviderConnections } from "../schema/ai-provider-connections.js";
 import { providerModels } from "../schema/provider-models.js";
@@ -201,6 +201,25 @@ export class ProviderRepositoryImpl implements ProviderRepository {
     }
 
     return { added, updated };
+  }
+
+  async deleteStaleModelsByProvider(
+    providerType: string,
+    activeModelIds: string[],
+  ): Promise<number> {
+    if (activeModelIds.length === 0) return 0;
+
+    const result = await this.db
+      .delete(providerModels)
+      .where(
+        and(
+          eq(providerModels.providerType, providerType),
+          notInArray(providerModels.modelId, activeModelIds),
+        ),
+      )
+      .returning({ id: providerModels.id });
+
+    return result.length;
   }
 
   async bulkToggleByProvider(providerType: string, enabled: boolean): Promise<number> {

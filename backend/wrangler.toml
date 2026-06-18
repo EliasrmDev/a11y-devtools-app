@@ -52,11 +52,11 @@ namespace_id = "1005"
 simple = { limit = 5, period = 60 }
 
 # ── Cron triggers ─────────────────────────────────────────────────────────────
-# Runs the job queue processor every minute.
+# Runs the job queue processor every 15 minutes.
 # Handlers: cleanup expired tokens, cleanup soft-deleted, process deletion
 # requests, detect inactive accounts, and reminder jobs.
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/15 * * * *"]
 
 # ── Cloudflare Workers AI binding ────────────────────────────────────────────
 [ai]

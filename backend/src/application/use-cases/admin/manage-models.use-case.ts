@@ -133,7 +133,7 @@ export class ManageModelsUseCase {
     providerType: ProviderType,
     adminUserId: string,
     meta: { ipAddress?: string; userAgent?: string },
-  ): Promise<{ added: number; updated: number; total: number }> {
+  ): Promise<{ added: number; updated: number; removed: number; total: number }> {
     // Resolve API key — OpenRouter is public (no key needed)
     const keyMap: Record<string, string | undefined> = {
       openai: this.adminApiKeys.openai,
@@ -182,6 +182,12 @@ export class ManageModelsUseCase {
 
     const result = await this.providers.bulkUpsertGlobalModels(globalModels);
 
+    const activeModelIds = models.map((m) => m.id);
+    const removed = await this.providers.deleteStaleModelsByProvider(
+      providerType,
+      activeModelIds,
+    );
+
     await this.audit.create({
       userId: adminUserId,
       action: "admin.models_synced",
@@ -189,9 +195,15 @@ export class ManageModelsUseCase {
       resourceId: null,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
-      metadata: { providerType, added: result.added, updated: result.updated, total: models.length },
+      metadata: {
+        providerType,
+        added: result.added,
+        updated: result.updated,
+        removed,
+        total: models.length,
+      },
     });
 
-    return { ...result, total: models.length };
+    return { ...result, removed, total: models.length };
   }
 }

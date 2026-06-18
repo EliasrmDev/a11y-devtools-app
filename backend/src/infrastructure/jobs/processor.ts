@@ -15,12 +15,11 @@ import { detectInactiveAccounts } from "./handlers/detect-inactive-accounts.js";
 import { cleanupExpiredModelCache } from "./handlers/cleanup-model-cache.js";
 
 /**
- * Cron-triggered batch processor (fires every minute via CF Workers cron).
+ * Cron-triggered batch processor (fires every 15 min via CF Workers cron).
  *
  * Uses the job queue to dispatch work.  Each invocation:
  *   1. Enqueues any newly scheduled/recurring jobs that should run now.
  *   2. Dequeues and executes pending jobs from the background_jobs table.
- *   3. Runs lightweight inline tasks that run on every tick (token cleanup, etc.).
  */
 export async function processScheduledJobs(
   db: Database,
@@ -34,55 +33,57 @@ export async function processScheduledJobs(
   const queue = new JobQueue(db);
 
   try {
-    // Enqueue recurring jobs using idempotent scheduling
-    // (uniqueKey ensures no double-enqueue within the same minute slot)
-    const nowMinute = Math.floor(Date.now() / 60_000).toString();
+    // Enqueue recurring jobs using idempotent scheduling.
+    // uniqueKey ensures no double-enqueue within the same time slot.
+    const daySlot = Math.floor(Date.now() / 86_400_000).toString();
+    const hourSlot = Math.floor(Date.now() / 3_600_000).toString();
+    const weekSlot = Math.floor(Date.now() / 604_800_000).toString();
 
     await queue.scheduleIfNotExists(
       "REMINDER_KEY_ROTATION",
-      `hourly:${Math.floor(Date.now() / 3_600_000)}`,
+      `daily:${daySlot}`,
       {},
       new Date(),
     );
 
     await queue.scheduleIfNotExists(
       "REMINDER_INVALID_CREDENTIAL",
-      `hourly:${Math.floor(Date.now() / 3_600_000)}`,
+      `daily:${daySlot}`,
       {},
       new Date(),
     );
 
     await queue.scheduleIfNotExists(
       "CLEANUP_EXPIRED_TOKENS",
-      `tick:${nowMinute}`,
+      `daily:${daySlot}`,
       {},
       new Date(),
     );
 
     await queue.scheduleIfNotExists(
       "CLEANUP_SOFT_DELETED",
-      `daily:${Math.floor(Date.now() / 86_400_000)}`,
+      `daily:${daySlot}`,
       {},
       new Date(),
     );
 
     await queue.scheduleIfNotExists(
       "PROCESS_DELETION_REQUESTS",
-      `tick:${nowMinute}`,
+      `hourly:${hourSlot}`,
       {},
       new Date(),
     );
 
     await queue.scheduleIfNotExists(
       "DETECT_INACTIVE_ACCOUNTS",
-      `daily:${Math.floor(Date.now() / 86_400_000)}`,
+      `weekly:${weekSlot}`,
       {},
       new Date(),
     );
 
     await queue.scheduleIfNotExists(
       "CLEANUP_EXPIRED_MODEL_CACHE",
-      `daily:${Math.floor(Date.now() / 86_400_000)}`,
+      `daily:${daySlot}`,
       {},
       new Date(),
     );

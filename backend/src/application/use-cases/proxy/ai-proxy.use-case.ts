@@ -34,14 +34,35 @@ export class AiProxyUseCase {
       throw new DomainError("PROVIDER_INACTIVE", "Provider connection is not active");
     }
 
-    // 2. Decrypt API key
+    // 2. Validate model is available
+    const globalModels = await this.providers.listGlobalModels();
+    const providerModels = globalModels.filter(
+      (m) => m.providerType === connection.providerType,
+    );
+    if (providerModels.length > 0) {
+      const model = providerModels.find((m) => m.modelId === input.model);
+      if (!model) {
+        throw new DomainError(
+          "MODEL_NOT_FOUND",
+          `Model "${input.model}" is not available for ${connection.providerType}`,
+        );
+      }
+      if (!model.isEnabled) {
+        throw new DomainError(
+          "MODEL_DISABLED",
+          `Model "${input.model}" is currently disabled`,
+        );
+      }
+    }
+
+    // 3. Decrypt API key
     const secret = await this.secrets.findByConnectionId(connection.id);
     if (!secret) {
       throw new NotFoundError("Provider secret");
     }
     const apiKey = this.crypto.decrypt(secret);
 
-    // 3. Decrypt custom headers if present
+    // 4. Decrypt custom headers if present
     let customHeaders: Record<string, string> | undefined;
     if (connection.customHeadersEnc) {
       const headersEnvelope = JSON.parse(connection.customHeadersEnc);
@@ -56,7 +77,7 @@ export class AiProxyUseCase {
       customHeaders = JSON.parse(headersJson);
     }
 
-    // 4. Resolve base URL
+    // 5. Resolve base URL
     const baseUrl =
       connection.baseUrl ??
       PROXY.KNOWN_PROVIDERS[
@@ -66,7 +87,7 @@ export class AiProxyUseCase {
       throw new DomainError("NO_BASE_URL", "No base URL configured for provider");
     }
 
-    // 5. Create AI client and execute
+    // 6. Create AI client and execute
     const client = createAiClient(connection.providerType as ProviderType);
 
     try {

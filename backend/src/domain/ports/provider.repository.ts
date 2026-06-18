@@ -17,6 +17,7 @@ export interface ProviderRepository {
   deleteGlobalModel(id: string): Promise<void>;
   bulkUpsertGlobalModels(models: CreateGlobalModelData[]): Promise<{ added: number; updated: number }>;
   bulkToggleByProvider(providerType: string, enabled: boolean): Promise<number>;
+  deleteStaleModelsByProvider(providerType: string, activeModelIds: string[]): Promise<number>;
 }
 
 export interface GlobalModel {

@@ -361,7 +361,7 @@ export function adminDeleteModel(id: string) {
 }
 
 export function adminSyncModels(providerType: string) {
-  return apiFetch<{ added: number; updated: number; total: number }>(
+  return apiFetch<{ added: number; updated: number; removed: number; total: number }>(
     "/api/v1/admin/models/sync",
     { method: "POST", body: { providerType } },
   );

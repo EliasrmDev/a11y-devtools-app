@@ -48,7 +48,7 @@ const SYNCABLE_PROVIDERS = ["openai", "anthropic", "openrouter", "gemini", "groq
 
 interface SyncStatus {
   loading: boolean;
-  result?: { added: number; updated: number; total: number };
+  result?: { added: number; updated: number; removed: number; total: number };
   error?: string;
 }
 
@@ -304,7 +304,7 @@ export default function AdminModelsPage() {
           {syncStatus[activeTab]?.result && (
             <span className="flex items-center gap-1 text-xs text-pass">
               <Check className="h-3.5 w-3.5" />
-              +{syncStatus[activeTab].result!.added} added, {syncStatus[activeTab].result!.updated} updated ({syncStatus[activeTab].result!.total} total)
+              +{syncStatus[activeTab].result!.added} added, {syncStatus[activeTab].result!.updated} updated{syncStatus[activeTab].result!.removed > 0 ? `, −${syncStatus[activeTab].result!.removed} removed` : ""} ({syncStatus[activeTab].result!.total} total)
             </span>
           )}
           {syncStatus[activeTab]?.error && (
@@ -325,7 +325,7 @@ export default function AdminModelsPage() {
               {status.loading && <Loader2 className="h-3 w-3 animate-spin text-sub" />}
               {status.result && (
                 <span className="text-pass">
-                  +{status.result.added} added, {status.result.updated} updated
+                  +{status.result.added} added, {status.result.updated} updated{status.result.removed > 0 ? `, −${status.result.removed} removed` : ""}
                 </span>
               )}
               {status.error && <span className="text-critical">{status.error}</span>}
